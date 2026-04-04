@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from src.Backend.routes.groqchat import chat_with_groq, classify_intent_and_respond
+from src.Backend.routes.mainchat import chat_with_groq, classify_intent_and_respond
 from src.Backend.routes.manusagent import ask_manus_agent
 import json
 import traceback

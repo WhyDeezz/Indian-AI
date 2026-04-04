@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from src.Backend.routes.groqchat import classify_intent_and_respond
+from src.Backend.routes.mainchat import classify_intent_and_respond
 import os
 from src.Backend.routes.manusagent import ask_manus_agent
 from fastapi.responses import StreamingResponse
@@ -309,7 +309,7 @@ async def transcribe_audio_file(file: UploadFile = File(...)):
                                 print(f"   This converts phonetic English back to proper English.")
                     
                     # Use ULTRA-STRICT language detection (English, Hinglish, Hindi ONLY)
-                    from .groqchat import detect_language_ehh_strict
+                    from .mainchat import detect_language_ehh_strict
                     language_code = detect_language_ehh_strict(transcription, sarvam_detected)
                     
                     print(f"✅ Final transcription: '{transcription}'")
