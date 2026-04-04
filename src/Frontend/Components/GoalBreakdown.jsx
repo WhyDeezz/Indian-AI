@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './GoalBreakdown.css';
 
-const GoalBreakdown = ({ onBack, analytics }) => {
+const GoalBreakdown = ({ onBack }) => {
   const [goal, setGoal] = useState('');
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,11 +11,6 @@ const GoalBreakdown = ({ onBack, analytics }) => {
     if (!goal.trim()) return;
     
     setLoading(true);
-    
-    // Track goal creation analytics
-    if (analytics) {
-      analytics.trackGoalCreated(goal.toLowerCase(), 'medium'); // Default difficulty
-    }
     
     try {
       const response = await fetch('https://ruhaan-336f0cf6b1b5.herokuapp.com/api/command/execute', {
@@ -177,11 +172,6 @@ const GoalBreakdown = ({ onBack, analytics }) => {
     setTasks(tasks.map(task => {
       if (task.id === taskId) {
         const newCompleted = !task.completed;
-        
-        // Track goal completion analytics
-        if (newCompleted && analytics) {
-          analytics.trackGoalCompleted(task.title.toLowerCase());
-        }
         
         // If marking main task as completed, mark all sub-tasks as completed
         if (newCompleted) {

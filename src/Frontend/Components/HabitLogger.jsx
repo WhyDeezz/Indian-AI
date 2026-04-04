@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './HabitLogger.css';
 
-const HabitLogger = ({ onBack, analytics }) => {
+const HabitLogger = ({ onBack }) => {
   const [habits, setHabits] = useState([]);
   const [newHabit, setNewHabit] = useState('');
   const [loading, setLoading] = useState(false);
@@ -10,11 +10,6 @@ const HabitLogger = ({ onBack, analytics }) => {
     if (!newHabit.trim()) return;
     
     setLoading(true);
-    
-    // Track habit creation analytics
-    if (analytics) {
-      analytics.trackHabitLogged(newHabit.toLowerCase(), 1);
-    }
     
     try {
       const response = await fetch('https://ruhaan-336f0cf6b1b5.herokuapp.com/api/command/execute', {
@@ -58,11 +53,6 @@ const HabitLogger = ({ onBack, analytics }) => {
     // Find current habit to get streak info
     const currentHabit = habits.find(h => h.name === habitName);
     const newStreak = currentHabit ? currentHabit.streak + 1 : 1;
-    
-    // Track habit logging analytics
-    if (analytics) {
-      analytics.trackHabitLogged(habitName, newStreak);
-    }
     
     try {
       const response = await fetch('https://ruhaan-336f0cf6b1b5.herokuapp.com/api/command/execute', {

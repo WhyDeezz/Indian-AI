@@ -141,8 +141,8 @@ def construct_actionable_voice_message(structured_response):
     - Generate a personal, connecting voice message that incorporates insights from all four perspectives.
     - Create a holistic message that validates emotions, provides wisdom, shares relatable stories, and gives clear action steps.
     """
-    print(f"🚀 ENTERING construct_actionable_voice_message function")
-    print(f"🔍 Input structured_response type: {type(structured_response)}")
+    print(f" ENTERING construct_actionable_voice_message function")
+    print(f" Input structured_response type: {type(structured_response)}")
     try:
         # Gather all key_points from all sections
         all_steps = []
@@ -300,6 +300,8 @@ async def classify_intent_and_respond(text: str, language_code: str = None) -> D
         "User: 'search for vaishu uff channel on youtube' → 'command'\n"
         "User: 'find youtube channel vaishu uff' → 'command'\n"
         "User: 'Why am I scared of leaving my job for a startup?' → 'structured'\n"
+        
+        
         "User: 'How are you today?' → 'chit-chat'\n"
         "User: 'note: buy groceries tomorrow' → 'command'\n"
         "User: 'I feel stuck in my relationship, should I stay?' → 'structured'\n"
@@ -584,11 +586,11 @@ async def classify_intent_and_respond(text: str, language_code: str = None) -> D
                 return None
         structured_response = robust_json_parse(content)
         if structured_response:
-            print(f"🔍 Parsed JSON sections: {list(structured_response.keys())}")
+            print(f" Parsed JSON sections: {list(structured_response.keys())}")
             required_sections = ["psychological", "philosophical", "autobiographical", "logical"]
             missing_sections = [s for s in required_sections if s not in structured_response]
             if missing_sections:
-                print(f"❌ Missing required sections: {missing_sections}")
+                print(f" Missing required sections: {missing_sections}")
             
             if all(section in structured_response for section in required_sections):
                 # Build a summary and next steps
@@ -611,8 +613,8 @@ async def classify_intent_and_respond(text: str, language_code: str = None) -> D
                 
                 # ALWAYS generate action-only voice message using our constructor
                 # Never trust LLM-generated voice messages as they contain summaries
-                print(f"🔧 About to call construct_actionable_voice_message with structured_response")
-                print(f"🔧 Structured response keys: {list(structured_response.keys())}")
+                print(f" About to call construct_actionable_voice_message with structured_response")
+                print(f" Structured response keys: {list(structured_response.keys())}")
                 voice_message = construct_actionable_voice_message(structured_response)
                
                 # Validate autobiographical section contains proper book reference

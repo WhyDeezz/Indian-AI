@@ -1,19 +1,15 @@
 import './App.css';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Chatbot from "./Components/Chatbot";
 import MicRecorder from "./Components/MicRecorder";
 import GoalBreakdown from "./Components/GoalBreakdown";
 import HabitLogger from "./Components/HabitLogger";
-import ProtectedAnalytics from "./Components/ProtectedAnalytics";
 import { requestNotificationPermission, scheduleReminderNotification } from "./utils/reminderNotifications";
-import RuhaanAnalytics from "./utils/analytics";
-import { Analytics } from "@vercel/analytics/react";
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'goals', 'habits', 'analytics'
+  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'goals', 'habits'
   const [isRecording, setIsRecording] = useState(false);
-  const analytics = useRef(new RuhaanAnalytics()).current;
 
   const handleLogoClick = () => {
     // Toggle recording state and pass to MicRecorder
@@ -22,22 +18,7 @@ function App() {
 
   useEffect(() => {
     requestNotificationPermission();
-    
-    // Track session start
-    analytics.trackSessionStart();
-    
-    // Track session end on page unload
-    const handleBeforeUnload = () => {
-      analytics.trackSessionEnd();
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      analytics.trackSessionEnd();
-    };
-  }, [analytics]);
+  }, []);
 
   // Listen for new reminder messages and schedule notifications
   useEffect(() => {
@@ -57,8 +38,6 @@ function App() {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'goals':
-        // Track feature usage
-        analytics.trackFeatureUsed('goals');
         return (
           <>
             <div className="navigation-bar">
@@ -75,12 +54,10 @@ function App() {
                 📊 Habits
               </button>
             </div>
-            <GoalBreakdown onBack={() => setCurrentView('chat')} analytics={analytics} />
+            <GoalBreakdown onBack={() => setCurrentView('chat')} />
           </>
         );
       case 'habits':
-        // Track feature usage
-        analytics.trackFeatureUsed('habits');
         return (
           <>
             <div className="navigation-bar">
@@ -97,13 +74,9 @@ function App() {
                 📊 Habits
               </button>
             </div>
-            <HabitLogger onBack={() => setCurrentView('chat')} analytics={analytics} />
+            <HabitLogger onBack={() => setCurrentView('chat')} />
           </>
         );
-      case 'analytics':
-        // Track feature usage
-        analytics.trackFeatureUsed('analytics');
-        return <ProtectedAnalytics onBack={() => setCurrentView('chat')} />;
       default:
         return (
           <>
@@ -125,12 +98,12 @@ function App() {
               setMessages={setMessages} 
               isRecording={isRecording}
               setIsRecording={setIsRecording}
-              analytics={analytics}
             />
             <Chatbot 
               messages={messages} 
               setMessages={setMessages}
-              analytics={analytics}
+              onLogoClick={handleLogoClick}
+              isRecording={isRecording}
             />
           </>
         );
@@ -142,16 +115,7 @@ function App() {
       {/* Sidebar */}
       <div className="sidebar">
         <div className="brand-name">
-          RuhaanAI
-        </div>
-        <div className="voice-listener" onClick={handleLogoClick}>
-          <div className="logo-container">
-            <img 
-              src="/ruhhhh.png" 
-              alt="AI Avatar" 
-              className={`mic-image ${isRecording ? 'recording' : ''}`}
-            />
-          </div>
+          Indian-AI
         </div>
       </div>
       
@@ -160,18 +124,6 @@ function App() {
         {renderCurrentView()}
       </div>
       
-      <a 
-        href="https://docs.google.com/document/d/1pqtHUxhP_kYD09QKo3_fcbM1QO4PzAoT0BELTkFrz_4/edit?usp=sharing" 
-        target="_blank" 
-        rel="noopener noreferrer" 
-        className="waitlist-button"
-        style={{ textDecoration: 'underline' }}
-      >
-        See Instructions to use Ruhaan
-    </a>
-      
-      {/* Vercel Analytics */}
-      <Analytics />
     </div>
   );
 }

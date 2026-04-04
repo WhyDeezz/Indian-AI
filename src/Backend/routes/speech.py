@@ -15,7 +15,6 @@ load_dotenv()
 
 router = APIRouter()
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Add OpenAI key for Whisper
 
 # Sarvam STT endpoint
 SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"

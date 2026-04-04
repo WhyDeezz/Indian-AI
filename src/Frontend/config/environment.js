@@ -7,9 +7,6 @@ const environment = {
   
   // Development backend URL (for local development)
   // API_BASE_URL: "http://localhost:8000",
-  
-  // Analytics endpoints
-  ANALYTICS_ENDPOINT: "/api/analytics",
   ADMIN_ENDPOINT: "/api/admin",
   
   // Command execution endpoint

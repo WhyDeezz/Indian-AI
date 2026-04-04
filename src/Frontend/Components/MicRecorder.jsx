@@ -6,7 +6,7 @@ import { playTTS } from "./playTTS";
 const API_BASE_URL = "https://ruhaan-336f0cf6b1b5.herokuapp.com/"; // Fixed URL to match backend
 // -----------------------------------------------------------
 
-const MicRecorder = ({ setMessages, isRecording, setIsRecording, analytics }) => {
+const MicRecorder = ({ setMessages, isRecording, setIsRecording }) => {
   const [transcription, setTranscription] = useState("");
   const mediaRecorderRef = useRef(null);
   const audioChunks = useRef([]);
@@ -74,13 +74,6 @@ const MicRecorder = ({ setMessages, isRecording, setIsRecording, analytics }) =>
             
             const displayTranscription = cleanTranscriptionForDisplay(transcription, language_code);
             setTranscription(displayTranscription);
-            
-            // Track voice usage analytics
-            const audioDuration = audioBlob.size / 1000; // Rough estimate
-            if (analytics) {
-              analytics.trackVoiceUsage(audioDuration);
-              analytics.trackMessageSent('voice', displayTranscription.length);
-            }
             
             // Handle different response types
             if (type === "structured") {

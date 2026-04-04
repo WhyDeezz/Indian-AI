@@ -4,7 +4,7 @@ import { processTextQuery } from "./api";
 import { playTTS } from "./playTTS";
 import { requestNotificationPermission, scheduleReminderNotification } from "../utils/reminderNotifications";
 
-const Chatbot = ({ messages, setMessages, analytics }) => {
+const Chatbot = ({ messages, setMessages, onLogoClick, isRecording }) => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
@@ -36,25 +36,15 @@ const Chatbot = ({ messages, setMessages, analytics }) => {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
     
-    // Track message analytics
-    if (analytics) {
-      analytics.trackMessageSent('text', messageText.length);
-    }
+
     
     const startTime = Date.now();
   
     try {
       const response = await processTextQuery(messageText, languageCode);
       
-      // Track AI response time
-      const responseTime = Date.now() - startTime;
-      if (analytics) {
-        analytics.trackAIResponse(responseTime);
-      }
-      
       console.log("Backend Response:", response); // Debug log
       
-      // Robustly extract backend response fields and handle stringified JSON
       let data = response.data.data || response.data;
       if (typeof data === "string") {
         try {
@@ -68,7 +58,6 @@ const Chatbot = ({ messages, setMessages, analytics }) => {
       const voiceMessage = data.voice_message;
       const langCode = data.language_code;
       
-      // Enhanced debug logging
       console.log("[DEBUG] Full backend response:", response.data);
       console.log("[DEBUG] Extracted data:", data);
       console.log("[DEBUG] data.type:", data.type);
@@ -81,7 +70,7 @@ const Chatbot = ({ messages, setMessages, analytics }) => {
         autobiographical: botReply?.autobiographical ? "✓" : "✗",
         logical: botReply?.logical ? "✓" : "✗"
       });
-      // If the response is a reminder/task (object with a message field), use only the message string for chat and TTS
+      
       if (typeof botReply === "object" && botReply !== null && botReply.message && typeof botReply.message === "string") {
         setMessages((prevMessages) => [
           ...prevMessages,
@@ -175,10 +164,10 @@ const Chatbot = ({ messages, setMessages, analytics }) => {
     console.log("Rendering structured message:", message.text); // Debug log
 
     const sections = [
-      { key: "psychological", title: "Psychological Analysis", color: "#4a90e2" },
-      { key: "philosophical", title: "Philosophical Perspective", color: "#50c878" },
-      { key: "autobiographical", title: "Autobiographical Insight", color: "#e67e22" },
-      { key: "logical", title: "Logical Framework", color: "#9b59b6" }
+      { key: "psychological", title: "Health", color: "#4a90e2" },
+      { key: "philosophical", title: "Family", color: "#50c878" },
+      { key: "autobiographical", title: "Dream", color: "#e67e22" },
+      { key: "logical", title: "Society", color: "#9b59b6" }
     ];
 
     return (
@@ -214,7 +203,16 @@ const Chatbot = ({ messages, setMessages, analytics }) => {
     <div className="chatbot-interface">
       {messages.length === 0 && (
         <div className="initial-text">
-          <div className="initial-text-main">Hey There! I am Ruhh!</div>
+          <div className="hero-logo-trigger" onClick={onLogoClick}>
+            <div className="logo-container">
+              <img
+                src="/indianai.png"
+                alt="AI Avatar"
+                className={`mic-image ${isRecording ? "recording" : ""}`}
+              />
+            </div>
+          </div>
+          <div className="initial-text-main">Hey There! I am I₹uhh!</div>
           <div className="initial-text-sub">What's holding you back today?</div>
         </div>
       )}

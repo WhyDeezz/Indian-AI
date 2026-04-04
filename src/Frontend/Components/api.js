@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://ruhaan-336f0cf6b1b5.herokuapp.com"; // Production Heroku URL 
+const API_BASE_URL = "https://www.indian-ai.com/"; // Production Heroku URL 
 
 //Speech-to-Text 
 export const transcribeAudio = async (audioFile) => {

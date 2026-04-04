@@ -26,33 +26,8 @@ from dotenv import load_dotenv
 load_dotenv()
 router = APIRouter()
 sarvam_client = Sarvam(api_key=os.getenv('SARVAM_API_KEY'))
-# Analytics tracking function
-async def track_command_analytics(command: str, command_type: str, success: bool = True):
-    """Track command execution analytics"""
-    try:
-        from .analytics import ANALYTICS_FILE
-        
-        event_data = {
-            "event": "command_executed",
-            "data": {
-                "command": command,
-                "command_type": command_type,
-                "success": success,
-                "timestamp": datetime.now().isoformat()
-            },
-            "client_timestamp": int(datetime.now().timestamp() * 1000),
-            "server_timestamp": int(datetime.now().timestamp() * 1000),
-            "session_id": f"backend_session_{int(datetime.now().timestamp())}"
-        }
-        
-        # Append to analytics file
-        with open(ANALYTICS_FILE, "a") as f:
-            f.write(json.dumps(event_data) + "\n")
-            
-    except Exception as e:
-        print(f"Analytics tracking error: {e}")
 
-# Simple Tool class to replace OpenManus Tool
+# Simple Tool class 
 class Tool:
     def __init__(self, name: str, description: str, func):
         self.name = name
@@ -180,18 +155,18 @@ def browser_tool(command: str) -> str:
             has_substantial_content = len(command.split()) > 3  # More than just "open youtube"
             
             if has_search_intent or has_substantial_content:
-                print(f"🔍 YouTube search command detected: '{command}'")
+                print(f" YouTube search command detected: '{command}'")
                 
                 # Use semantic extraction for robust query parsing
                 query = _extract_youtube_query_semantic(command)
                 
                 if query and len(query.strip()) > 2:  # Ensure we have a meaningful query
                     youtube_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}"
-                    print(f"🎯 Opening YouTube URL: {youtube_url}")
+                    print(f" Opening YouTube URL: {youtube_url}")
                     webbrowser.open(youtube_url)
                     return f"Opened YouTube search for: {query}"
                 else:
-                    print("❌ No meaningful query extracted, opening YouTube homepage")
+                    print(" No meaningful query extracted, opening YouTube homepage")
                     webbrowser.open("https://www.youtube.com")
                     return "Opened YouTube homepage"
             else:
@@ -239,6 +214,7 @@ def enhanced_reminder_tool(command: str) -> dict:
             content = match.group(1)
         else:
             content = command
+            
     
     # Enhanced time extraction
     time_patterns = [
@@ -326,20 +302,20 @@ def enhanced_reminder_tool(command: str) -> dict:
     # Schedule notification if delay_seconds is specified
     if delay_seconds:
         def trigger_reminder():
-            print(f"🚀 Reminder thread started, sleeping for {delay_seconds} seconds...")
-            print(f"🕐 Thread will wake up at: {(datetime.now() + timedelta(seconds=delay_seconds)).strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f" Reminder thread started, sleeping for {delay_seconds} seconds...")
+            print(f" Thread will wake up at: {(datetime.now() + timedelta(seconds=delay_seconds)).strftime('%Y-%m-%d %H:%M:%S')}")
             
             time.sleep(delay_seconds)
             
             wake_time = datetime.now()
-            print(f"\n⏰ WAKE UP! Reminder thread triggered at: {wake_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"🎯 Triggering reminder: '{content}'")
+            print(f"\n WAKE UP! Reminder thread triggered at: {wake_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f" Triggering reminder: '{content}'")
             
             try:
                 notification_shown = False
                 
                 # Method 1: Try plyer first (cross-platform and most reliable)
-                print("🔄 Attempting plyer notification...")
+                print(" Attempting plyer notification...")
                 try:
                     from plyer import notification
                     notification.notify(
@@ -348,15 +324,15 @@ def enhanced_reminder_tool(command: str) -> dict:
                         timeout=15
                     )
                     notification_shown = True
-                    print(f"✅ Plyer notification sent successfully: {content}")
+                    print(f" Plyer notification sent successfully: {content}")
                 except ImportError:
-                    print("❌ Plyer not available (ImportError), trying Windows-specific methods...")
+                    print(" Plyer not available (ImportError), trying Windows-specific methods...")
                 except Exception as e:
-                    print(f"❌ Plyer failed with error: {e}")
+                    print(f" Plyer failed with error: {e}")
                 
                 # Method 2: Windows MessageBox (most reliable on Windows)
                 if not notification_shown:
-                    print("🔄 Attempting Windows MessageBox...")
+                    print(" Attempting Windows MessageBox...")
                     try:
                         import subprocess
                         import os
@@ -369,19 +345,19 @@ def enhanced_reminder_tool(command: str) -> dict:
                             ]
                             result = subprocess.run(cmd, capture_output=True, text=True, shell=True, timeout=30)
                             notification_shown = True
-                            print(f"✅ Windows MessageBox executed successfully: {content}")
+                            print(f" Windows MessageBox executed successfully: {content}")
                             if result.stdout:
-                                print(f"📝 MessageBox stdout: {result.stdout}")
+                                print(f" MessageBox stdout: {result.stdout}")
                             if result.stderr:
-                                print(f"⚠️ MessageBox stderr: {result.stderr}")
+                                print(f" MessageBox stderr: {result.stderr}")
                         else:
-                            print("❌ Not on Windows, skipping MessageBox")
+                            print(" Not on Windows, skipping MessageBox")
                     except Exception as e:
-                        print(f"❌ Windows MessageBox failed with error: {e}")
+                        print(f" Windows MessageBox failed with error: {e}")
                 
                 # Method 3: Windows balloon tip notification
                 if not notification_shown:
-                    print("🔄 Attempting Windows balloon notification...")
+                    print(" Attempting Windows balloon notification...")
                     try:
                         import subprocess
                         import os
@@ -403,19 +379,19 @@ $notification.Dispose()
                             result = subprocess.run(['powershell', '-Command', ps_script], 
                                                    capture_output=True, text=True, shell=True, timeout=30)
                             notification_shown = True
-                            print(f"✅ Windows balloon notification executed: {content}")
+                            print(f" Windows balloon notification executed: {content}")
                             if result.stdout:
-                                print(f"📝 Balloon stdout: {result.stdout}")
+                                print(f" Balloon stdout: {result.stdout}")
                             if result.stderr:
-                                print(f"⚠️ Balloon stderr: {result.stderr}")
+                                print(f" Balloon stderr: {result.stderr}")
                         else:
-                            print("❌ Not on Windows, skipping balloon notification")
+                            print(" Not on Windows, skipping balloon notification")
                     except Exception as e:
-                        print(f"❌ Windows balloon notification failed with error: {e}")
+                        print(f" Windows balloon notification failed with error: {e}")
                 
                 # Method 4: Simple cmd msgbox as fallback
                 if not notification_shown:
-                    print("🔄 Attempting CMD msg notification...")
+                    print(" Attempting CMD msg notification...")
                     try:
                         import subprocess
                         import os
@@ -426,15 +402,15 @@ $notification.Dispose()
                                 'msg', '*', f'⏰ RUHAAN REMINDER: {escaped_content}'
                             ], capture_output=True, text=True, shell=True, timeout=30)
                             notification_shown = True
-                            print(f"✅ CMD msg notification executed: {content}")
+                            print(f" CMD msg notification executed: {content}")
                             if result.stdout:
-                                print(f"📝 MSG stdout: {result.stdout}")
+                                print(f" MSG stdout: {result.stdout}")
                             if result.stderr:
-                                print(f"⚠️ MSG stderr: {result.stderr}")
+                                print(f" MSG stderr: {result.stderr}")
                         else:
-                            print("❌ Not on Windows, skipping CMD msg")
+                            print(" Not on Windows, skipping CMD msg")
                     except Exception as e:
-                        print(f"❌ CMD msg failed with error: {e}")
+                        print(f" CMD msg failed with error: {e}")
                 
                 # Method 5: Force console notification with sound (always show)
                 print(f"\n🔔🔔🔔 REMINDER ALERT 🔔🔔🔔")
@@ -443,7 +419,7 @@ $notification.Dispose()
                 print(f"🔔🔔🔔 REMINDER ALERT 🔔🔔🔔\n")
                 
                 # Summary of notification attempts
-                print(f"📊 Notification summary:")
+                print(f" Notification summary:")
                 print(f"   - At least one GUI method was attempted: {notification_shown}")
                 print(f"   - Console alert: Always shown")
                 print(f"   - Sound alert: Attempting...")
@@ -454,23 +430,23 @@ $notification.Dispose()
                     for i in range(3):  # 3 beeps
                         winsound.Beep(1000, 300)  # 1000 Hz for 300ms
                         time.sleep(0.2)
-                    print("🔊 Sound alert played!")
+                    print(" Sound alert played!")
                 except ImportError:
-                    print("🔇 winsound not available (not Windows)")
+                    print(" winsound not available (not Windows)")
                 except Exception as e:
                     try:
                         print('\a' * 5)  # Multiple ASCII bell characters
-                        print("🔊 ASCII bell played!")
+                        print(" ASCII bell played!")
                     except Exception as bell_e:
-                        print(f"🔇 No sound available - winsound: {e}, bell: {bell_e}")
+                        print(f" No sound available - winsound: {e}, bell: {bell_e}")
                 
                 # Mark as triggered
                 reminder_data["triggered"] = True
-                print(f"✅ Reminder marked as triggered: {content}")
-                print(f"🕐 Reminder completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f" Reminder marked as triggered: {content}")
+                print(f" Reminder completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             except Exception as e:
-                print(f"❌ Error triggering reminder: {e}")
-                print(f"🔔 EMERGENCY ALERT: {content} - {datetime.now().strftime('%H:%M:%S')}")
+                print(f" Error triggering reminder: {e}")
+                print(f" EMERGENCY ALERT: {content} - {datetime.now().strftime('%H:%M:%S')}")
                 import traceback
                 traceback.print_exc()
         
@@ -478,9 +454,9 @@ $notification.Dispose()
         thread = threading.Thread(target=trigger_reminder, daemon=True)
         thread.start()
         
-        print(f"🚀 Background reminder scheduled for {delay_seconds} seconds ({reminder_time})")
-        print(f"🕐 Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"🎯 Expected trigger time: {(datetime.now() + timedelta(seconds=delay_seconds)).strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f" Background reminder scheduled for {delay_seconds} seconds ({reminder_time})")
+        print(f" Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f" Expected trigger time: {(datetime.now() + timedelta(seconds=delay_seconds)).strftime('%Y-%m-%d %H:%M:%S')}")
         
         return {
             "message": f"⏰ Reminder set: '{content}' will pop up {reminder_time}",
@@ -574,7 +550,7 @@ Goal: {goal}"""
                             max_tokens=2000  # Increased for complete 3-step response
                         )
                         
-                        # Check if response has the expected structure
+                        # Checking if response has the expected structure
                         if 'choices' in response and len(response['choices']) > 0:
                             if 'message' in response['choices'][0] and 'content' in response['choices'][0]['message']:
                                 return response['choices'][0]['message']['content']
@@ -589,7 +565,7 @@ Goal: {goal}"""
                         print(f"Sarvam API call failed: {api_error}")
                         return None
                 
-                # Run the Sarvam LLM call
+                # Sarvam LLM call
                 result = loop.run_until_complete(call_sarvam())
                 if result:
                     result_queue.put(("success", result))
@@ -789,7 +765,7 @@ def habit_log_tool(command: str) -> str:
         
         # Check if already logged today
         if h["last_date"] == today:
-            return f"✅ Habit '{habit}' already logged today!\n🔥 Current streak: {h['streak']} days\n🏆 Best streak: {h['best_streak']} days"
+            return f" Habit '{habit}' already logged today!\n🔥 Current streak: {h['streak']} days\n🏆 Best streak: {h['best_streak']} days"
         
         # Update streak logic
         if h["last_date"]:
@@ -1148,13 +1124,6 @@ async def get_response(command):
             print(f"Sarvam LLM Error: {e}")
             response = f"I couldn't understand the command: {command}. Try commands like 'remind me to...', 'note: ...', 'break down: ...', 'log habit: ...', or 'open chrome'."
     
-    # Track analytics for command execution
-    try:
-        await track_command_analytics(command, command_type, success=(response is not None))
-    except Exception as e:
-        print(f"Analytics tracking error: {e}")
-    
-    return response
 
 # --- FastAPI endpoints ---
 
@@ -1167,7 +1136,6 @@ async def execute_command(request: CommandRequest):
         
         print(f"🔍 Processing command: {command}")
         
-        # Determine command type for analytics
         command_type = "unknown"
         lower_command = command.lower().strip()
         
@@ -1184,9 +1152,6 @@ async def execute_command(request: CommandRequest):
         elif "task:" in lower_command:
             command_type = "quick_task"
         
-        # Track command execution start
-        await track_command_analytics(command, command_type, True)
-        
         response = await get_response(command)
         print(f"📤 Response length: {len(str(response))} chars")
         print(f"📤 Response preview: {str(response)[:200]}...")
@@ -1198,11 +1163,6 @@ async def execute_command(request: CommandRequest):
             return {"response": str(response)}
     except Exception as e:
         print(f"❌ Error in execute_command: {e}")
-        # Track failed command execution
-        try:
-            await track_command_analytics(command if 'command' in locals() else "unknown", "error", False)
-        except:
-            pass
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Create list of all tools for API ---
@@ -1221,30 +1181,6 @@ async def get_reminders():
     reminders = getattr(enhanced_reminder_tool, "reminders", [])
     return {"reminders": reminders}
 
-@router.post("/ruhaan")
-async def run_agent(query: Query):
-    try:
-        # Determine command type for analytics
-        command_type = "chat"
-        if is_command(query.prompt):
-            command_type = "command"
-        
-        # Track agent query
-        await track_command_analytics(query.prompt, command_type, True)
-        
-        reply = await get_response(query.prompt)
-        # Ensure reply is serializable
-        if isinstance(reply, str):
-            return {"reply": reply}
-        else:
-            return {"reply": str(reply)}
-    except Exception as e:
-        # Track failed query
-        try:
-            await track_command_analytics(query.prompt if 'query' in locals() else "unknown", "error", False)
-        except:
-            pass
-        return {"reply": f"Error processing request: {str(e)}"}
 
 ask_manus_agent = get_response
 
@@ -1353,7 +1289,7 @@ def _convert_to_search_keywords(topics: str) -> str:
     # Remove excessive words, keep 2-4 key terms max
     words = final_keywords.split()
     if len(words) > 4:
-        # Keep most important words (usually nouns and key descriptors)
+        # Keep most important words 
         important_words = []
         for word in words:
             if len(word) > 3 and word not in ['which', 'that', 'about', 'together']:
@@ -1365,7 +1301,6 @@ def _convert_to_search_keywords(topics: str) -> str:
     # Final cleanup
     final_keywords = re.sub(r'\s+', ' ', final_keywords).strip()
     
-    # Ensure we have something meaningful
     if not final_keywords or len(final_keywords) < 5:
         return "content creator tips"
     
