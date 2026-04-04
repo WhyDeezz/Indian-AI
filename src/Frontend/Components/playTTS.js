@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL = "https://ruhaan-336f0cf6b1b5.herokuapp.com"; // Update if needed
+const API_BASE_URL = "https://www.indian-ai.com";
 
 export async function playTTS(text, language_code) {
   try {

@@ -2,9 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { playTTS } from "./playTTS";
 
-// --- Change this URL to your deployed Railway backend URL ---
-const API_BASE_URL = "https://ruhaan-336f0cf6b1b5.herokuapp.com/"; // Fixed URL to match backend
-// -----------------------------------------------------------
+const API_BASE_URL = "https://www.indian-ai.com";
 
 const MicRecorder = ({ setMessages, isRecording, setIsRecording }) => {
   const [transcription, setTranscription] = useState("");

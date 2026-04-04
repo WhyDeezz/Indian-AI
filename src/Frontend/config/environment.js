@@ -3,7 +3,7 @@
 
 const environment = {
   // Production backend URL
-  API_BASE_URL: "https://ruhaan-336f0cf6b1b5.herokuapp.com",
+  API_BASE_URL: "https://www.indian-ai.com",
   
   // Development backend URL (for local development)
   // API_BASE_URL: "http://localhost:8000",

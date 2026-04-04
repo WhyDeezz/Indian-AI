@@ -35,6 +35,34 @@ const Chatbot = ({ messages, setMessages, onLogoClick, isRecording }) => {
     const userMessage = { text: messageText, sender: "user" };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+
+    // Frontend-only hardcoded replies for launch/demo mode.
+    const normalizedMessage = (messageText || "").trim().toLowerCase();
+    if (normalizedMessage === "hi") {
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          text: "hi I am Indian AI, Of the People, By the people, for the people !",
+          sender: "bot",
+          structured: false,
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
+
+    if (normalizedMessage === "how many indian ais are available") {
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          text: "1. Indian-AI 🤓",
+          sender: "bot",
+          structured: false,
+        },
+      ]);
+      setIsLoading(false);
+      return;
+    }
     
 
     

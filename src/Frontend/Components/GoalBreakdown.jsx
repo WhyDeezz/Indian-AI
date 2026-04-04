@@ -13,7 +13,7 @@ const GoalBreakdown = ({ onBack }) => {
     setLoading(true);
     
     try {
-      const response = await fetch('https://ruhaan-336f0cf6b1b5.herokuapp.com/api/command/execute', {
+      const response = await fetch('https://www.indian-ai.com/api/command/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

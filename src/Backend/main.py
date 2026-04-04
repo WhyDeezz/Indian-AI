@@ -20,8 +20,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Local development
-        "https://*.vercel.app",   # Vercel deployments
-        "https://ruhaan-ai-agent.vercel.app",  # Your specific frontend URL
+        "https://www.indian-ai.com",
         "https://www.indian-ai.com/"
     ],  
     allow_credentials=True,
