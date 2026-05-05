@@ -11,15 +11,13 @@ load_dotenv()
 #uvicorn src.Backend.main:app --reload 
 # Import routers
 from src.Backend.routes.api_frontend import router as api_frontend_router
-from src.Backend.routes.speech import router as speech_router
-from src.Backend.routes.manusagent import router as manus_router
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",  # Local development
+        "http://localhost:5173",  
         "https://www.indian-ai.com",
         "https://www.indian-ai.com/"
     ],  
@@ -37,8 +35,6 @@ app.mount(
 
 # Route registrations
 app.include_router(api_frontend_router, prefix="/api", tags=["Frontend API"])
-app.include_router(speech_router, prefix="/api/speech", tags=["Speech"])
-app.include_router(manus_router, prefix="/api/command", tags=["Commands"])
 
 
 @app.get("/")

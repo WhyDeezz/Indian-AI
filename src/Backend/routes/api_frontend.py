@@ -1,12 +1,8 @@
-# /api/chat -> api_frontend.py (chat endpoint)
-# /api/speech/transcribe -> speech.py (speech to text)
-# /api/speech/tts -> speech.py (text to speech)
-# /api/command -> langchain.py (commands)
+# /api/chat -> api_frontend.py (structured 4-perspective responses)
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from src.Backend.routes.mainchat import chat_with_groq, classify_intent_and_respond
-from src.Backend.routes.manusagent import ask_manus_agent
+from src.Backend.routes.mainchat import classify_intent_and_respond
 import json
 import traceback
 
@@ -37,18 +33,7 @@ async def process_chat(request: ChatRequest):
         else:
             intent_data = intent_data_raw  # fallback
         print("intent_data:", intent_data)  # Debug log
-        # If it's a command, use Manus agent
-        if intent_data.get("type") == "command":
-            response = await ask_manus_agent(request.message)
-            return {
-                "status": "success",
-                "data": {
-                    "response": response,
-                    "language_code": intent_data.get("language_code"),
-                    "type": "command"
-                }
-            }
-        # If it's a structured (4-perspective) response, return the 4-perspective object and voice_message only
+        # If it's a structured (4-perspective) response, return the 4-perspective object
         if intent_data.get("type") == "structured":
             return {
                 "status": "success",

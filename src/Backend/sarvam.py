@@ -40,19 +40,3 @@ class Sarvam:
             raise Exception(f"Sarvam API request failed: {str(e)}")
         except Exception as e:
             raise Exception(f"Sarvam API error: {str(e)}")
-
-    async def tts(self, text, voice="default"):
-        url = f"{self.base_url}/speech/tts"
-        payload = {"text": text, "voice": voice}
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=self.headers, json=payload)
-            response.raise_for_status()
-            return response.json()
-
-    async def stt(self, audio_url):
-        url = f"{self.base_url}/speech/transcribe"
-        payload = {"audio_url": audio_url}
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, headers=self.headers, json=payload)
-            response.raise_for_status()
-            return response.json()

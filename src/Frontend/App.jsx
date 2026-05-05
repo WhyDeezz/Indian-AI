@@ -1,110 +1,186 @@
+// import './App.css';
+// import { useState } from 'react';
+// import Chatbot from "./Components/Chatbot";
+// import GoalBreakdown from "./Components/GoalBreakdown";
+// import HabitLogger from "./Components/HabitLogger";
+// import IndiaMap from "./Components/India-map/IndiaMap";
+// import topo from "@/data/india-states.json";
+
+// function App() {
+//   const [messages, setMessages] = useState([]);
+//   const [currentView, setCurrentView] = useState('chat');
+//   const [selectedState, setSelectedState] = useState(null);
+
+//   const stateNames = topo.features.map((f) => f.properties.st_nm);
+
+//   const renderNavigation = () => (
+//     <div className="navigation-bar">
+//       <div className="nav-row">
+//         <button 
+//           className="nav-btn goals-btn"
+          // onClick={() => setCurrentView('goals')}
+//         >
+//           🎯 Goals
+//         </button>
+//         <button 
+//           className="nav-btn habits-btn"
+//           onClick={() => setCurrentView('habits')}
+//         >
+//           📊 Habits
+//         </button>
+//       </div>
+//       <div className="nav-row">
+//         <button 
+//           className="nav-btn curations-btn"
+//           onClick={() => setCurrentView('curations')}
+//         >
+//           ✨ My Curations
+//         </button>
+//         <button 
+//           className="nav-btn socialize-btn"
+//           onClick={() => setCurrentView('socialize')}
+//         >
+//           🤝 Socialize
+//         </button>
+//       </div>
+//     </div>
+//   );
+
+//   const renderCurrentView = () => {
+//     switch (currentView) {
+//       case 'goals':
+//         return <GoalBreakdown onBack={() => setCurrentView('chat')} />;
+//       case 'habits':
+//         return <HabitLogger onBack={() => setCurrentView('chat')} />;
+//       case 'curations':
+//         return (
+//           <div className="simple-view-panel">
+//             <h2>My Curations</h2>
+//             <p>This section is ready for saved collections, favorites, and handpicked content.</p>
+//             <button className="nav-btn" onClick={() => setCurrentView('chat')}>Back to Chat</button>
+//           </div>
+//         );
+//       case 'socialize':
+//         return (
+//           <div className="simple-view-panel">
+//             <h2>Socialize</h2>
+//             <p>This section is ready for community, sharing, and social interaction features.</p>
+//             <button className="nav-btn" onClick={() => setCurrentView('chat')}>Back to Chat</button>
+//           </div>
+//         );
+//       default:
+//         return (
+//           <>
+//             {renderNavigation()}
+//             <Chatbot 
+//               messages={messages} 
+//               setMessages={setMessages}
+//             />
+//           </>
+//         );
+//     }
+//   };
+
+//   return (
+//     <div className="app-container">
+//       {/* Top Sidebar - Brand */}
+//       <div className="sidebar">
+//         <div className="brand-name">Indian-AI</div>
+//       </div>
+      
+//       {/* Main Layout - Map Sidebar + Content */}
+//       <div className="main-layout">
+//         {/* Left Map Sidebar (25%) */}
+//         <div className="map-sidebar">
+//           <div className="map-container">
+//             <IndiaMap
+//               activeStates={stateNames}
+//               selected={selectedState}
+//               onSelect={setSelectedState}
+//             />
+//           </div>
+//           <div className="map-layer-buttons">
+//             <button className="layer-btn temperature-btn">🌡️ Temperature</button>
+//             <button className="layer-btn attractions-btn">📍 Attractions</button>
+//             <button className="layer-btn economy-btn">📊 Economy</button>
+//           </div>
+//         </div>
+
+//         {/* Right Main Content (75%) */}
+//         <div className="main-content">
+//           {renderCurrentView()}
+//         </div>
+//       </div>
+
+//       {/* State Detail Modal */}
+//       {selectedState && (
+//         <div className="state-detail-modal-overlay" onClick={() => setSelectedState(null)}>
+//           <div className="state-detail-modal" onClick={(e) => e.stopPropagation()}>
+//             <StateDetail
+//               stateName={selectedState}
+//               onClose={() => setSelectedState(null)}
+//             />
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// export defaultapp;
+
 import './App.css';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Chatbot from "./Components/Chatbot";
-import MicRecorder from "./Components/MicRecorder";
 import GoalBreakdown from "./Components/GoalBreakdown";
 import HabitLogger from "./Components/HabitLogger";
-import { requestNotificationPermission, scheduleReminderNotification } from "./utils/reminderNotifications";
+import IndiaMap from "./Components/India-map/IndiaMap";
+import StateDetail from "./Components/India-map/StateDetail";
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'goals', 'habits'
-  const [isRecording, setIsRecording] = useState(false);
-
-  const handleLogoClick = () => {
-    // Toggle recording state and pass to MicRecorder
-    setIsRecording(!isRecording);
-  };
+  const [currentView, setCurrentView] = useState('chat');
+  const [selectedState, setSelectedState] = useState(null);
 
   useEffect(() => {
-    requestNotificationPermission();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedState(null);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Listen for new reminder messages and schedule notifications
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      // If the last message is a reminder response from backend
-      if (lastMsg && lastMsg.reply && lastMsg.reply.reminder_time) {
-        scheduleReminderNotification(lastMsg.reply);
-      }
-      // If using /execute endpoint, adapt to lastMsg.response.reminder_time
-      if (lastMsg && lastMsg.response && lastMsg.response.reminder_time) {
-        scheduleReminderNotification(lastMsg.response);
-      }
-    }
-  }, [messages]);
+  const renderNavigation = () => (
+    <div className="navigation-bar">
+      <div className="nav-row">
+        <button className="nav-btn" onClick={() => setCurrentView('goals')}>🎯 Goals</button>
+        <button className="nav-btn" onClick={() => setCurrentView('habits')}>📊 Habits</button>
+      </div>
+      <div className="nav-row">
+        <button className="nav-btn" onClick={() => setCurrentView('curations')}>✨ Curations</button>
+        <button className="nav-btn" onClick={() => setCurrentView('socialize')}>🤝 Socialize</button>
+      </div>
+    </div>
+  );
 
   const renderCurrentView = () => {
     switch (currentView) {
       case 'goals':
-        return (
-          <>
-            <div className="navigation-bar">
-              <button 
-                className="nav-btn goals-btn"
-                onClick={() => setCurrentView('goals')}
-              >
-                🎯 Goals
-              </button>
-              <button 
-                className="nav-btn habits-btn"
-                onClick={() => setCurrentView('habits')}
-              >
-                📊 Habits
-              </button>
-            </div>
-            <GoalBreakdown onBack={() => setCurrentView('chat')} />
-          </>
-        );
+        return <GoalBreakdown onBack={() => setCurrentView('chat')} />;
       case 'habits':
-        return (
-          <>
-            <div className="navigation-bar">
-              <button 
-                className="nav-btn goals-btn"
-                onClick={() => setCurrentView('goals')}
-              >
-                🎯 Goals
-              </button>
-              <button 
-                className="nav-btn habits-btn"
-                onClick={() => setCurrentView('habits')}
-              >
-                📊 Habits
-              </button>
-            </div>
-            <HabitLogger onBack={() => setCurrentView('chat')} />
-          </>
-        );
+        return <HabitLogger onBack={() => setCurrentView('chat')} />;
+      case 'curations':
+        return <div className="simple-view-panel">Curations</div>;
+      case 'socialize':
+        return <div className="simple-view-panel">Socialize</div>;
       default:
         return (
           <>
-            <div className="navigation-bar">
-              <button 
-                className="nav-btn goals-btn"
-                onClick={() => setCurrentView('goals')}
-              >
-                🎯 Goals
-              </button>
-              <button 
-                className="nav-btn habits-btn"
-                onClick={() => setCurrentView('habits')}
-              >
-                📊 Habits
-              </button>
-            </div>
-            <MicRecorder 
-              setMessages={setMessages} 
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-            />
-            <Chatbot 
-              messages={messages} 
-              setMessages={setMessages}
-              onLogoClick={handleLogoClick}
-              isRecording={isRecording}
-            />
+            {renderNavigation()}
+            <Chatbot messages={messages} setMessages={setMessages} />
           </>
         );
     }
@@ -112,18 +188,25 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Sidebar */}
-      <div className="sidebar">
-        <div className="brand-name">
-          Indian-AI
+      {/* Left sidebar with India map */}
+      <aside className="sidebar">
+        <div className="brand-name">INDIAN-AI</div>
+        <div className="map-shell">
+          <IndiaMap selected={selectedState} onSelect={setSelectedState} />
         </div>
-      </div>
-      
-      {/* Main Content Area */}
-      <div className="main-content">
+      </aside>
+
+      <main className="main-content">
         {renderCurrentView()}
-      </div>
-      
+      </main>
+
+      {selectedState && (
+        <div className="state-detail-modal-overlay" onClick={() => setSelectedState(null)}>
+          <div className="state-detail-modal" onClick={(event) => event.stopPropagation()}>
+            <StateDetail stateName={selectedState} onClose={() => setSelectedState(null)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
