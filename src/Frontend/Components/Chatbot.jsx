@@ -218,7 +218,7 @@ const Chatbot = ({ messages, setMessages }) => {
       )}
 
       {/* Messages */}
-      <div className="chat-messages flex flex-col gap-3 flex-1 overflow-y-auto px-6 py-4 w-full">
+      <div className="chat-messages flex flex-col flex-1 overflow-y-auto px-4 pt-32 pb-4">
         {messages.map((msg, index) => (
           <div
             key={`${msg.sender}-${index}`}

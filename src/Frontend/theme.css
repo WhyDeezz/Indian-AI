@@ -128,10 +128,7 @@
     @apply bg-background text-foreground;
   }
 
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
+
 
   html {
     font-size: var(--font-size);
@@ -178,4 +175,32 @@
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
   }
+}
+
+@import "tailwindcss";
+
+html {
+  font-size: 100%;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+  color: #f5f7fb;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.12), transparent 28%),
+    #09090b;
+}
+
+.chat-messages::-webkit-scrollbar {
+  display: none;
 }

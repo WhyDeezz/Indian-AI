@@ -1,528 +1,564 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { motion } from "motion/react";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { MapContainer, TileLayer, Marker } from "react-leaflet";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { geoMercator, geoPath } from "d3-geo";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  AreaChart, Area, XAxis, YAxis,
-} from "recharts";
-import {
-  X, Star, Wind, Droplets, Sun, Eye, MapPin, ArrowUpRight, TrendingUp,
+  X,
+  MapPin,
+  Thermometer,
+  BarChart3,
+  Star,
+  Building2,
+  Users,
+  GraduationCap,
+  Landmark,
+  Droplets,
+  Wind,
+  Eye,
+  Sun,
 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { CATEGORY_META, STATES, type Category } from "./indiaData";
+import indiaStates from "./indiastates.json";
 
-// ── Leaflet icon factory ─────────────────────────────────────────────────────
-const PIN_CACHE: Record<string, L.DivIcon> = {};
-function makePinIcon(emoji: string, color: string): L.DivIcon {
-  const key = emoji + color;
-  if (!PIN_CACHE[key]) {
-    PIN_CACHE[key] = L.divIcon({
-      className: "",
-      html: `<div style="width:38px;height:38px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid rgba(255,255,255,0.35);box-shadow:0 4px 16px rgba(0,0,0,0.55),0 0 0 5px ${color}28;cursor:pointer;transition:transform .2s;">
-               ${emoji}
-             </div>`,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19],
-    });
-  }
-  return PIN_CACHE[key];
-}
 
-// ── Color palette constants ───────────────────────────────────────────────────
-const C = {
-  bg: "#07111D",
-  card: "rgba(255,255,255,0.05)",
-  cardBorder: "rgba(255,255,255,0.08)",
-  cyan: "#4CC9F0",
-  cyanDim: "rgba(76,201,240,0.12)",
-  cyanBorder: "rgba(76,201,240,0.22)",
-  violet: "#7C4DFF",
-  neon: "#00E5FF",
-  green: "#22c55e",
-  amber: "#f59e0b",
-  pink: "#ec4899",
-  teal: "#06b6d4",
-} as const;
-
-// ── Data ─────────────────────────────────────────────────────────────────────
-const PIN_CATS = [
-  { id: "all",        emoji: "🗺",  label: "All",         color: C.cyan },
-  { id: "city",       emoji: "🏙",  label: "Cities",      color: C.cyan },
-  { id: "attraction", emoji: "🏛",  label: "Attractions", color: C.violet },
-  { id: "park",       emoji: "🌳",  label: "Parks",       color: C.green },
-  { id: "lake",       emoji: "🏞",  label: "Lakes",       color: C.teal },
-  { id: "mountain",   emoji: "🏔",  label: "Mountains",   color: "#a855f7" },
-  { id: "beach",      emoji: "🏖",  label: "Beaches",     color: C.amber },
-];
-
-const MAP_PINS = [
-  { id:1,  cat:"city",       emoji:"🏙", color:C.cyan,     coords:[19.0760,72.8777] as [number,number], name:"Mumbai",              img:"https://images.unsplash.com/photo-1662737897280-226e47d4db8e?w=320&h=200&fit=crop&auto=format", desc:"Financial capital of India — Bollywood, stock exchange, 20M+ residents.", dist:"Capital", rating:4.9 },
-  { id:2,  cat:"city",       emoji:"🏙", color:C.cyan,     coords:[18.5204,73.8567] as [number,number], name:"Pune",                img:"https://images.unsplash.com/photo-1732022648903-737e66c18b08?w=320&h=200&fit=crop&auto=format", desc:"Silicon Valley of India — IT, education, automotive powerhouse.",          dist:"147 km from Mumbai", rating:4.7 },
-  { id:3,  cat:"city",       emoji:"🏙", color:C.cyan,     coords:[21.1458,79.0882] as [number,number], name:"Nagpur",              img:"https://images.unsplash.com/photo-1648831180276-2dc08f3db3ef?w=320&h=200&fit=crop&auto=format", desc:"The Orange City — geographic center of India.",                           dist:"878 km from Mumbai", rating:4.5 },
-  { id:4,  cat:"city",       emoji:"🏙", color:C.cyan,     coords:[19.9975,73.7898] as [number,number], name:"Nashik",              img:"https://images.unsplash.com/photo-1626419825300-c56f471b94a2?w=320&h=200&fit=crop&auto=format", desc:"Wine capital of India and host of Kumbh Mela every 12 years.",            dist:"162 km from Mumbai", rating:4.6 },
-  { id:5,  cat:"city",       emoji:"🏙", color:C.cyan,     coords:[19.8762,75.3433] as [number,number], name:"Aurangabad",          img:"https://images.unsplash.com/photo-1704788564069-d54cab4169aa?w=320&h=200&fit=crop&auto=format", desc:"Gateway to Ajanta & Ellora — historic Mughal heritage city.",             dist:"335 km from Mumbai", rating:4.7 },
-  { id:6,  cat:"attraction", emoji:"🏛", color:C.violet,   coords:[18.9219,72.8347] as [number,number], name:"Gateway of India",    img:"https://images.unsplash.com/photo-1670165184224-85d9145f614f?w=320&h=200&fit=crop&auto=format", desc:"Iconic 1924 arch monument overlooking the Arabian Sea.",                  dist:"0.5 km from CST",   rating:4.8 },
-  { id:7,  cat:"attraction", emoji:"🏛", color:C.violet,   coords:[20.5519,75.7033] as [number,number], name:"Ajanta Caves",        img:"https://images.unsplash.com/photo-1704788564069-d54cab4169aa?w=320&h=200&fit=crop&auto=format", desc:"UNESCO rock-cut Buddhist cave monuments from 2nd century BCE.",           dist:"107 km from Aurangabad", rating:4.9 },
-  { id:8,  cat:"attraction", emoji:"🏛", color:C.violet,   coords:[20.0258,75.1780] as [number,number], name:"Ellora Caves",        img:"https://images.unsplash.com/photo-1670509628897-333df68d1d90?w=320&h=200&fit=crop&auto=format", desc:"34 monasteries carved from basalt cliff — three faiths, one wonder.",     dist:"30 km from Aurangabad", rating:4.9 },
-  { id:9,  cat:"park",       emoji:"🌳", color:C.green,    coords:[20.3944,79.3243] as [number,number], name:"Tadoba Tiger Reserve", img:"https://images.unsplash.com/photo-1626419825300-c56f471b94a2?w=320&h=200&fit=crop&auto=format", desc:"Maharashtra's oldest national park — 88 tigers, highest density in India.",dist:"935 km from Mumbai", rating:4.8 },
-  { id:10, cat:"park",       emoji:"🌳", color:C.green,    coords:[21.4800,79.3333] as [number,number], name:"Pench National Park",  img:"https://images.unsplash.com/photo-1648115124749-b5d0c3ced1fa?w=320&h=200&fit=crop&auto=format", desc:"Inspiration for Rudyard Kipling's The Jungle Book — 60+ tigers.",        dist:"982 km from Mumbai", rating:4.7 },
-  { id:11, cat:"lake",       emoji:"🏞", color:C.teal,     coords:[19.9737,76.5086] as [number,number], name:"Lonar Crater Lake",   img:"https://images.unsplash.com/photo-1648831180276-2dc08f3db3ef?w=320&h=200&fit=crop&auto=format", desc:"World's rarest saltwater impact crater lake, formed 50,000 years ago.",  dist:"475 km from Mumbai", rating:4.7 },
-  { id:12, cat:"mountain",   emoji:"🏔", color:"#a855f7",  coords:[19.5969,73.7150] as [number,number], name:"Kalsubai Peak",       img:"https://images.unsplash.com/photo-1648115124749-b5d0c3ced1fa?w=320&h=200&fit=crop&auto=format", desc:"Highest peak in Maharashtra at 1,646 m — prime trekking destination.",    dist:"167 km from Mumbai", rating:4.7 },
-  { id:13, cat:"beach",      emoji:"🏖", color:C.amber,    coords:[17.1452,73.2656] as [number,number], name:"Ganpatipule Beach",    img:"https://images.unsplash.com/photo-1599661046289-e31897846e41?w=320&h=200&fit=crop&auto=format", desc:"Virgin Konkan coast beach with crystal-clear water and swaying palms.",   dist:"375 km from Mumbai", rating:4.7 },
-];
-
-const ATTRACTIONS = [
-  { name:"Gateway of India",    district:"Mumbai",     rating:4.8, season:"Oct–Mar", unesco:false, img:"https://images.unsplash.com/photo-1670165184224-85d9145f614f?w=600&h=400&fit=crop&auto=format",  desc:"Iconic 26m basalt arch built in 1924 to honour King George V's visit, now the symbolic entrance to India by sea." },
-  { name:"Ajanta Caves",        district:"Aurangabad", rating:4.9, season:"Nov–Feb", unesco:true,  img:"https://images.unsplash.com/photo-1704788564069-d54cab4169aa?w=600&h=400&fit=crop&auto=format",  desc:"30 rock-cut Buddhist cave monuments adorned with extraordinary frescoes and sculptures from the 2nd century BCE." },
-  { name:"Ellora Caves",        district:"Aurangabad", rating:4.9, season:"Nov–Mar", unesco:true,  img:"https://images.unsplash.com/photo-1670509628897-333df68d1d90?w=600&h=400&fit=crop&auto=format",  desc:"34 monasteries carved directly into basalt cliffs, spanning Buddhist, Hindu, and Jain traditions across 5 centuries." },
-  { name:"Lonar Crater Lake",   district:"Buldhana",   rating:4.6, season:"Dec–Mar", unesco:false, img:"https://images.unsplash.com/photo-1648831180276-2dc08f3db3ef?w=600&h=400&fit=crop&auto=format",  desc:"A rare alkaline saltwater crater lake formed by a meteorite impact 50,000 years ago — a true geological wonder." },
-  { name:"Mahabaleshwar",       district:"Satara",     rating:4.7, season:"Mar–Jun", unesco:false, img:"https://images.unsplash.com/photo-1648115124749-b5d0c3ced1fa?w=600&h=400&fit=crop&auto=format",  desc:"Lush Sahyadri hill station famed for strawberry farms, panoramic viewpoints, and the serene Venna Lake." },
-  { name:"Tadoba Tiger Reserve",district:"Chandrapur", rating:4.8, season:"Apr–Jun", unesco:false, img:"https://images.unsplash.com/photo-1626419825300-c56f471b94a2?w=600&h=400&fit=crop&auto=format",  desc:"Maharashtra's oldest national park — home to 88 Royal Bengal tigers, leopards, wild dogs, and sloth bears." },
-];
-
-const HERO_MAP: Record<string, { heroImg: string; tagline: string; capital: string; temp: string; gsdp: string; attractions: number; bestTime: string }> = {
-  "Maharashtra":  { heroImg:"https://images.unsplash.com/photo-1710582999228-bf5a133c4573?w=1800&h=900&fit=crop&auto=format",  tagline:"The Land of Opportunities — Powering India's Future",  capital:"Mumbai",           temp:"28°C", gsdp:"₹36.4T", attractions:47, bestTime:"Oct–Mar" },
-  "Rajasthan":    { heroImg:"https://images.unsplash.com/photo-1599661046289-e31897846e41?w=1800&h=900&fit=crop&auto=format",  tagline:"The Land of Kings — Royalty Written in Every Stone",    capital:"Jaipur",           temp:"32°C", gsdp:"₹12.8T", attractions:63, bestTime:"Nov–Feb" },
-  "Karnataka":    { heroImg:"https://images.unsplash.com/photo-1670165184224-85d9145f614f?w=1800&h=900&fit=crop&auto=format",  tagline:"One State, Many Worlds — From Silicon to Silk",         capital:"Bengaluru",        temp:"24°C", gsdp:"₹24.9T", attractions:38, bestTime:"Oct–Mar" },
-  "Gujarat":      { heroImg:"https://images.unsplash.com/photo-1648831180276-2dc08f3db3ef?w=1800&h=900&fit=crop&auto=format",  tagline:"Vibrant Gujarat — Innovation Meets Heritage",           capital:"Gandhinagar",      temp:"30°C", gsdp:"₹22.1T", attractions:29, bestTime:"Nov–Feb" },
-  "Tamil Nadu":   { heroImg:"https://images.unsplash.com/photo-1704788564069-d54cab4169aa?w=1800&h=900&fit=crop&auto=format",  tagline:"The Land of Temples, Traditions and Tigers",           capital:"Chennai",          temp:"30°C", gsdp:"₹25.7T", attractions:54, bestTime:"Nov–Mar" },
-  "Kerala":       { heroImg:"https://images.unsplash.com/photo-1626419825300-c56f471b94a2?w=1800&h=900&fit=crop&auto=format",  tagline:"God's Own Country — Where Nature Breathes Freely",     capital:"Thiruvananthapuram",temp:"27°C", gsdp:"₹10.4T", attractions:41, bestTime:"Sep–Mar" },
-  "West Bengal":  { heroImg:"https://images.unsplash.com/photo-1648115124749-b5d0c3ced1fa?w=1800&h=900&fit=crop&auto=format",  tagline:"The Cultural Soul of India — Art, Song and Spirit",     capital:"Kolkata",          temp:"25°C", gsdp:"₹16.2T", attractions:35, bestTime:"Oct–Feb" },
-};
-const FALLBACK_HERO = HERO_MAP["Maharashtra"];
-
-const WEATHER = {
-  temp:31, feelsLike:35, condition:"Partly Cloudy", humidity:72, wind:18, aqi:68, uv:7, rain:40,
-  sunrise:"6:12 AM", sunset:"7:28 PM",
-  hourly:[
-    {time:"Now",  temp:31, icon:"⛅"},{time:"1 PM", temp:32, icon:"☀️"},{time:"2 PM", temp:33, icon:"☀️"},
-    {time:"3 PM", temp:32, icon:"⛅"},{time:"4 PM", temp:31, icon:"🌦"},{time:"5 PM", temp:30, icon:"🌧"},
-    {time:"6 PM", temp:29, icon:"🌧"},{time:"7 PM", temp:28, icon:"⛅"},{time:"8 PM", temp:27, icon:"🌙"},
-  ],
-  weekly:[
-    {day:"Mon",high:33,low:26,icon:"☀️"},{day:"Tue",high:31,low:25,icon:"⛅"},{day:"Wed",high:29,low:24,icon:"🌧"},
-    {day:"Thu",high:28,low:23,icon:"🌧"},{day:"Fri",high:30,low:25,icon:"⛅"},{day:"Sat",high:32,low:26,icon:"☀️"},
-    {day:"Sun",high:31,low:25,icon:"⛅"},
-  ],
-  seasonal:[
-    {m:"Jan",t:23},{m:"Feb",t:25},{m:"Mar",t:29},{m:"Apr",t:32},{m:"May",t:33},{m:"Jun",t:30},
-    {m:"Jul",t:27},{m:"Aug",t:27},{m:"Sep",t:28},{m:"Oct",t:30},{m:"Nov",t:27},{m:"Dec",t:24},
-  ],
+const SYS = {
+  blue:    "#0A84FF",
+  green:   "#30D158",
+  orange:  "#FF9F0A",
+  red:     "#FF453A",
+  teal:    "#40C8E0",
+  purple:  "#BF5AF2",
+  yellow:  "#FFD60A",
+  pink:    "#FF375F",
 };
 
-const ECONOMY = {
-  gsdp:"₹36.4T", rank:"#1 India", growth:"8.2%", perCapita:"₹2.84L",
-  sectors:[
-    {name:"Services",  value:58, color:C.cyan},
-    {name:"Industry",  value:26, color:C.violet},
-    {name:"Agriculture",value:16,color:C.green},
-  ],
-  industries:[
-    {name:"Financial Services",    pct:91, color:C.cyan},
-    {name:"Manufacturing",         pct:84, color:C.violet},
-    {name:"Information Technology",pct:76, color:C.green},
-    {name:"Tourism & Hospitality", pct:55, color:C.amber},
-    {name:"Logistics & Ports",     pct:63, color:C.pink},
-  ],
-  exports:["💎 Gems & Jewellery","🚗 Automobiles","🌾 Agriculture","💻 IT Services","💊 Pharmaceuticals","⚓ Marine Exports"],
+// Apple HIG dark material layers
+const M = {
+  base:          "#000000",
+  l1:            "#1C1C1E",   // grouped bg
+  l2:            "#2C2C2E",   // elevated card
+  l3:            "#3A3A3C",   // secondary fill
+  l4:            "#48484A",   // tertiary fill / separator
+  separator:     "rgba(255,255,255,0.08)",
+  separatorHard: "rgba(255,255,255,0.13)",
+  fill1:         "rgba(255,255,255,0.05)",
+  fill2:         "rgba(255,255,255,0.08)",
+  fill3:         "rgba(255,255,255,0.12)",
+  labelPrimary:  "#FFFFFF",
+  labelSecondary:"rgba(255,255,255,0.55)",
+  labelTertiary: "rgba(255,255,255,0.30)",
+  labelQuart:    "rgba(255,255,255,0.18)",
 };
 
-// ── Tabs ─────────────────────────────────────────────────────────────────────
-const TABS = [
-  {id:"map",         label:"🗺",  full:"Map"},
-  {id:"attractions", label:"🏛",  full:"Attractions"},
-  {id:"weather",     label:"🌤",  full:"Weather"},
-  {id:"economy",     label:"💹",  full:"Economy"},
-];
+type Feature = {
+  type: "Feature";
+  properties: { name: string };
+  geometry: GeoJSON.Geometry | GeoJSON.GeometryCollection;
+};
+type FC = { type: "FeatureCollection"; features: Feature[] };
+type Tab = "attractions" | "temperature" | "economy";
 
-// ── Hero section ─────────────────────────────────────────────────────────────
-function Hero({ stateName, heroData, parallax, onClose }: {
-  stateName: string;
-  heroData: typeof FALLBACK_HERO;
-  parallax: number;
-  onClose: () => void;
+export default function StatePopup({
+  stateName = "Maharashtra",
+  onClose = () => {},
+}: {
+  stateName?: string;
+  onClose?: () => void;
 }) {
+  const info = STATES[stateName];
+  const [tab, setTab] = useState<Tab>("attractions");
+  const [activeCats, setActiveCats] = useState<Record<Category, boolean>>({
+    historical: true,
+    natural: true,
+    cultural: true,
+  });
+  const [geo, setGeo] = useState<Feature | null>(null);
+  const [hoverPin, setHoverPin] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTab("attractions");
+    const feature = indiaStates.features.find(
+      (f) => f.properties.name === stateName
+    );
+    setGeo(feature ?? null);
+  }, [stateName]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  const W = 720, H = 480;
+  const { pathD, project } = useMemo(() => {
+    if (!geo)
+      return { pathD: "", project: null as ReturnType<typeof geoMercator> | null };
+    const fc: FC = { type: "FeatureCollection", features: [geo] };
+    const proj = geoMercator().fitExtent([[40, 40], [W - 40, H - 40]], fc as unknown as GeoPermissibleObjects);
+    const pathGen = geoPath(proj);
+    return { pathD: pathGen(geo as unknown as GeoPermissibleObjects) ?? "", project: proj };
+  }, [geo]);
+
+  if (!info) return null;
+
+  const visiblePins = info.attractions.filter((a) => activeCats[a.category]);
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: "attractions", label: "Attractions", icon: <MapPin size={14} /> },
+    { id: "temperature", label: "Weather",     icon: <Thermometer size={14} /> },
+    { id: "economy",     label: "Economy",     icon: <BarChart3 size={14} /> },
+  ];
+  const activeTabIdx = tabs.findIndex((t) => t.id === tab);
+
   return (
-    <div className="relative overflow-hidden shrink-0" style={{ height: 300 }}>
-      <img
-        src={heroData.heroImg}
-        alt={stateName}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: `translateY(${parallax}px) scale(1.18)`, transformOrigin: "center top" }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{ background: "linear-gradient(to bottom, rgba(7,17,29,0.1) 0%, rgba(7,17,29,0.55) 55%, rgba(7,17,29,1) 100%)" }}
-      />
-
-      {/* Close */}
-      <button
+    <AnimatePresence>
+      <motion.div
+        key="overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={onClose}
-        className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 z-10"
-        style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.18)" }}
+        // Dark scrim — iOS sheet backdrop
+        css-note="backdrop"
       >
-        <X size={15} className="text-white" />
-      </button>
-
-      {/* Content */}
-      <div className="absolute bottom-0 inset-x-0 px-6 md:px-10 pb-5">
-        <motion.h2
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="text-[clamp(2.2rem,6vw,3.5rem)] font-black text-white leading-none mb-1"
-          style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-        >
-          {stateName}
-        </motion.h2>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.45, delay: 0.1 }}
-          className="text-sm mb-5"
-          style={{ color: "rgba(255,255,255,0.52)" }}
-        >
-          {heroData.tagline}
-        </motion.p>
+        {/* Blurred scrim */}
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
 
         <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.18 }}
-          className="flex flex-wrap gap-2"
+          key="card"
+          initial={{ opacity: 0, scale: 0.94, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 20 }}
+          transition={{ type: "spring", stiffness: 400, damping: 36, mass: 0.8 }}
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-5xl max-h-[92vh] overflow-hidden"
+          style={{
+            background: M.l1,
+            borderRadius: 20,
+            border: `0.5px solid ${M.separatorHard}`,
+            boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
+          }}
         >
-          {[
-            { icon: "🌡", label: "Temperature", val: heroData.temp },
-            { icon: "💹", label: "GSDP",        val: heroData.gsdp },
-            { icon: "📍", label: "Attractions", val: `${heroData.attractions}+` },
-            { icon: "🗓", label: "Best Time",   val: heroData.bestTime },
-          ].map(({ icon, label, val }) => (
-            <div
-              key={label}
-              className="px-3 py-2 rounded-2xl"
-              style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.14)" }}
-            >
-              <p className="text-[9px] text-white/45 leading-none mb-1 tracking-wide">{label}</p>
-              <p className="text-sm font-bold text-white leading-none">{icon} {val}</p>
-            </div>
-          ))}
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-// ── Tab nav ───────────────────────────────────────────────────────────────────
-function TabNav({ active, onSelect }: { active: string; onSelect: (id: string) => void }) {
-  return (
-    <div
-      className="sticky top-0 z-20 flex gap-1 px-4 md:px-10 py-3 overflow-x-auto"
-      style={{
-        background: "rgba(7,17,29,0.9)",
-        backdropFilter: "blur(24px)",
-        borderBottom: `1px solid ${C.cardBorder}`,
-        scrollbarWidth: "none",
-      }}
-    >
-      {TABS.map((tab) => {
-        const isActive = active === tab.id;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onSelect(tab.id)}
-            className="shrink-0 px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300"
-            style={
-              isActive
-                ? { background: C.cyanDim, color: C.cyan, border: `1px solid ${C.cyanBorder}` }
-                : { color: "rgba(255,255,255,0.38)", border: "1px solid transparent" }
-            }
+          {/* ── Header ── */}
+          <div
+            className="flex items-center justify-between px-6 pt-5 pb-4"
+            style={{ borderBottom: `0.5px solid ${M.separator}` }}
           >
-            <span className="mr-1.5">{tab.label}</span>
-            <span className="hidden sm:inline">{tab.full}</span>
-          </button>
-        );
-      })}
-    </div>
+            <div>
+              <h2
+                className="text-2xl font-bold tracking-tight"
+                style={{ color: M.labelPrimary, letterSpacing: "-0.025em" }}
+              >
+                {info.name}
+              </h2>
+              <p className="mt-0.5 text-[13px]" style={{ color: M.labelSecondary }}>
+                {info.attractions.length} attractions · {info.avgTemp}°C avg · {info.subtitle}
+              </p>
+            </div>
+
+            {/* iOS close button — circular SF-style */}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-all"
+              style={{ background: M.fill2, color: M.labelSecondary }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = M.fill3;
+                (e.currentTarget as HTMLButtonElement).style.color = M.labelPrimary;
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = M.fill2;
+                (e.currentTarget as HTMLButtonElement).style.color = M.labelSecondary;
+              }}
+            >
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+
+          {/* ── Body ── */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] max-h-[calc(92vh-80px)] overflow-y-auto"
+            style={{ scrollbarWidth: "none" }}>
+
+            <div className="p-6 min-w-0">
+              {tab === "attractions" && (
+                <AttractionsPanel
+                  W={W} H={H} pathD={pathD} project={project}
+                  attractions={info.attractions}
+                  visible={visiblePins}
+                  activeCats={activeCats}
+                  setActiveCats={setActiveCats}
+                  hoverPin={hoverPin}
+                  setHoverPin={setHoverPin}
+                />
+              )}
+              {tab === "temperature" && <WeatherSection info={info} />}
+              {tab === "economy" && <EconomyPanel info={info} />}
+            </div>
+
+            {/* ── iOS Segmented / Tab Rail ── */}
+            <div className="md:sticky md:top-5 md:self-start flex md:flex-col gap-1.5 px-4 pb-4 md:py-0 md:pt-1 md:pr-5">
+              {/* Segmented container */}
+              <div
+                className="flex md:flex-col p-1 gap-0 rounded-2xl relative"
+                style={{ background: M.l2 }}
+              >
+                {/* Sliding indicator */}
+                <motion.div
+                  className="absolute rounded-xl"
+                  style={{ background: M.l3 }}
+                  animate={{
+                    top:    `calc(${activeTabIdx} * (100% / ${tabs.length}) + 4px)`,
+                    left:   4,
+                    right:  4,
+                    height: `calc(100% / ${tabs.length} - 8px)`,
+                  }}
+                  transition={{ type: "spring", stiffness: 500, damping: 38 }}
+                />
+                {tabs.map(({ id, label, icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setTab(id)}
+                    className="relative z-10 flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-colors"
+                    style={{
+                      color: tab === id ? M.labelPrimary : M.labelTertiary,
+                      letterSpacing: "-0.01em",
+                      minWidth: 130,
+                    }}
+                  >
+                    <span style={{ color: tab === id ? SYS.blue : M.labelTertiary }}>{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
-// ── Map section ───────────────────────────────────────────────────────────────
-function MapSection() {
-  const [filter, setFilter] = useState("all");
-  const [pin, setPin] = useState<(typeof MAP_PINS)[0] | null>(null);
-  const visible = filter === "all" ? MAP_PINS : MAP_PINS.filter((p) => p.cat === filter);
+// ─────────────────────────────────────────────────────────────────
+// Attractions Panel
+// ─────────────────────────────────────────────────────────────────
+type Attractions = (typeof STATES)[string]["attractions"];
+
+function AttractionsPanel({
+  W, H, pathD, project, visible, activeCats, setActiveCats, hoverPin, setHoverPin,
+}: {
+  W: number; H: number; pathD: string;
+  project: ReturnType<typeof geoMercator> | null;
+  attractions: Attractions; visible: Attractions;
+  activeCats: Record<Category, boolean>;
+  setActiveCats: (v: Record<Category, boolean>) => void;
+  hoverPin: string | null; setHoverPin: (v: string | null) => void;
+}) {
+  const cats: Category[] = ["historical", "natural", "cultural"];
+
+  // Apple HIG system colors for categories
+  const catColors: Record<Category, string> = {
+    historical: SYS.orange,
+    natural:    SYS.green,
+    cultural:   SYS.purple,
+  };
 
   return (
     <div className="space-y-4">
-      {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap">
-        {PIN_CATS.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setFilter(c.id)}
-            className="text-xs px-3.5 py-1.5 rounded-full font-medium transition-all duration-200"
-            style={
-              filter === c.id
-                ? { background: c.color, color: "#07111D", fontWeight: 700 }
-                : { background: C.card, color: "rgba(255,255,255,0.48)", border: `1px solid ${C.cardBorder}` }
-            }
-          >
-            {c.emoji} {c.label}
-          </button>
-        ))}
+      {/* Category filter pills — iOS chip style */}
+      <div className="flex flex-wrap gap-2">
+        {cats.map((c) => {
+          const meta = CATEGORY_META[c];
+          const color = catColors[c];
+          const on = activeCats[c];
+          return (
+            <button
+              key={c}
+              onClick={() => setActiveCats({ ...activeCats, [c]: !on })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all"
+              style={{
+                background: on ? `${color}22` : M.fill1,
+                color: on ? color : M.labelTertiary,
+                border: `0.5px solid ${on ? `${color}55` : M.separator}`,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              <Landmark size={11} />
+              {meta.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Map */}
-      <div className="relative rounded-3xl overflow-hidden" style={{ height: 420, border: `1px solid ${C.cardBorder}` }}>
-        <MapContainer
-          center={[19.5, 76.5]}
-          zoom={6}
-          style={{ height: "100%", width: "100%", background: C.bg }}
-          zoomControl={false}
-          attributionControl={false}
-        >
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-          {visible.map((p) => (
-            <Marker
-              key={p.id}
-              position={p.coords}
-              icon={makePinIcon(p.emoji, p.color)}
-              eventHandlers={{ click: () => setPin(p) }}
+      <div
+        className="relative rounded-2xl overflow-hidden"
+        style={{ background: M.l2, border: `0.5px solid ${M.separator}` }}
+      >
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+          <defs>
+            <filter id="sf-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="6" floodColor={SYS.green} floodOpacity="0.3" />
+            </filter>
+            <linearGradient id="sf-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#34C75922" />
+              <stop offset="100%" stopColor="#30D15833" />
+            </linearGradient>
+          </defs>
+          {pathD && (
+            <path
+              d={pathD}
+              fill="url(#sf-fill)"
+              stroke={SYS.green}
+              strokeWidth={1.5}
+              filter="url(#sf-glow)"
             />
-          ))}
-        </MapContainer>
+          )}
+          {project && visible.map((a) => {
+            const xy = project(a.coords);
+            if (!xy) return null;
+            const color = catColors[a.category];
+            const isHover = hoverPin === a.id;
+            return (
+              <g
+                key={a.id}
+                transform={`translate(${xy[0]}, ${xy[1]})`}
+                style={{ cursor: "pointer" }}
+                onMouseEnter={() => setHoverPin(a.id)}
+                onMouseLeave={() => setHoverPin(null)}
+              >
+                <g style={{
+                  transform: isHover ? "scale(1.3)" : "scale(1)",
+                  transformOrigin: "0px -10px",
+                  transition: "transform 200ms cubic-bezier(0.34,1.56,0.64,1)",
+                }}>
+                  <path
+                    d="M0,-22 C-8,-22 -14,-16 -14,-9 C-14,-1 0,12 0,12 C0,12 14,-1 14,-9 C14,-16 8,-22 0,-22 Z"
+                    fill={color}
+                    stroke="rgba(255,255,255,0.3)"
+                    strokeWidth={1}
+                  />
+                  <circle cx={0} cy={-10} r={4} fill="rgba(255,255,255,0.9)" />
+                </g>
+                {isHover && (
+                  <g transform="translate(0, -44)">
+                    <rect x={-55} y={-18} width={110} height={18} rx={9}
+                      fill={M.l1} stroke={M.separatorHard} strokeWidth={0.5} />
+                    <text x={0} y={-5} textAnchor="middle" fontSize={10} fontWeight={600}
+                      fill="white" style={{ fontFamily: "'Inter', sans-serif" }}>
+                      {a.name}
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
 
-        {/* Floating attribution */}
-        <div className="absolute bottom-2 right-2 text-[9px] z-[1000]" style={{ color: "rgba(255,255,255,0.25)" }}>
-          © CartoDB / OpenStreetMap
-        </div>
-
-        {/* Pin popup */}
-        {pin && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className="absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-72 rounded-2xl overflow-hidden z-[999]"
-            style={{ background: "rgba(7,17,29,0.96)", backdropFilter: "blur(24px)", border: `1px solid ${C.cardBorder}`, boxShadow: "0 24px 64px rgba(0,0,0,0.7)" }}
-          >
-            <div className="h-28 relative overflow-hidden">
-              <img src={pin.img} alt={pin.name} className="w-full h-full object-cover" />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(7,17,29,0.88) 0%, transparent 55%)" }} />
-              <button onClick={() => setPin(null)} className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.55)" }}>
-                <X size={11} className="text-white" />
-              </button>
-              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: pin.color + "cc" }}>
-                {pin.emoji} {PIN_CATS.find(c => c.id === pin.cat)?.label}
+      {/* Attraction list — iOS grouped table rows */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ background: M.l2, border: `0.5px solid ${M.separator}` }}
+      >
+        {visible.map((a, i) => {
+          const color = catColors[a.category];
+          const isLast = i === visible.length - 1;
+          return (
+            <div
+              key={a.id}
+              onMouseEnter={(e) => {
+                setHoverPin(a.id);
+                (e.currentTarget as HTMLDivElement).style.background = M.fill1;
+              }}
+              onMouseLeave={(e) => {
+                setHoverPin(null);
+                (e.currentTarget as HTMLDivElement).style.background = "transparent";
+              }}
+              className="transition-colors"
+              style={{
+                background: hoverPin === a.id ? M.fill1 : "transparent",
+                borderBottom: isLast ? "none" : `0.5px solid ${M.separator}`,
+              }}
+            >
+              <div className="flex items-start gap-3 px-4 py-3.5">
+                {/* Category dot badge */}
+                <div
+                  className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5"
+                  style={{ background: `${color}20` }}
+                >
+                  <Landmark size={13} style={{ color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <p className="text-[14px] font-semibold" style={{ color: M.labelPrimary, letterSpacing: "-0.012em" }}>
+                      {a.name}
+                    </p>
+                    <span
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                      style={{ background: `${color}22`, color }}
+                    >
+                      {CATEGORY_META[a.category].label}
+                    </span>
+                  </div>
+                  <p className="text-[12px] leading-relaxed" style={{ color: M.labelSecondary }}>
+                    {a.description}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                  <Star size={11} className="fill-[#FFD60A] text-[#FFD60A]" />
+                  <span className="text-[13px] font-semibold" style={{ color: M.labelPrimary, letterSpacing: "-0.01em" }}>
+                    {a.rating}
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-bold text-sm">{pin.name}</p>
-                <span className="flex items-center gap-1">
-                  <Star size={11} fill={C.amber} color={C.amber} />
-                  <span className="text-xs font-bold" style={{ color: C.amber }}>{pin.rating}</span>
-                </span>
-              </div>
-              <p className="text-xs mb-2 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.38)" }}>
-                <MapPin size={9} /> {pin.dist}
-              </p>
-              <p className="text-xs leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.58)" }}>{pin.desc}</p>
-              <button className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all hover:brightness-110" style={{ background: C.cyanDim, color: C.cyan, border: `1px solid ${C.cyanBorder}` }}>
-                View Details <ArrowUpRight size={11} />
-              </button>
-            </div>
-          </motion.div>
+          );
+        })}
+        {visible.length === 0 && (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-[14px]" style={{ color: M.labelTertiary }}>No attractions selected</p>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// ── Attractions section ────────────────────────────────────────────────────────
-function AttractionsSection() {
-  const [modal, setModal] = useState<(typeof ATTRACTIONS)[0] | null>(null);
+// ─────────────────────────────────────────────────────────────────
+// Weather Section
+// ─────────────────────────────────────────────────────────────────
+function WeatherSection({ info }: { info: (typeof STATES)[string] }) {
+  const w = info.weather;
 
   return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ATTRACTIONS.map((place, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 22 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06, type: "spring", stiffness: 300, damping: 26 }}
-            whileHover={{ y: -5 }}
-            onClick={() => setModal(place)}
-            className="group rounded-2xl overflow-hidden cursor-pointer"
-            style={{ background: C.card, border: `1px solid ${C.cardBorder}` }}
-          >
-            <div className="relative h-44 overflow-hidden">
-              <img
-                src={place.img}
-                alt={place.name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-              />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(7,17,29,0.82) 0%, transparent 55%)" }} />
-              {place.unesco && (
-                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wide" style={{ background: "rgba(124,77,255,0.88)", backdropFilter: "blur(8px)" }}>
-                  UNESCO ✦
-                </div>
-              )}
-              <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: "rgba(0,0,0,0.52)", backdropFilter: "blur(8px)" }}>
-                <Star size={10} fill={C.amber} color={C.amber} />
-                <span className="text-xs font-bold text-white">{place.rating}</span>
-              </div>
-            </div>
-            <div className="p-4">
-              <p className="font-bold text-sm mb-1 text-white">{place.name}</p>
-              <p className="text-xs mb-2 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.38)" }}>
-                <MapPin size={9} /> {place.district}
-              </p>
-              <p className="text-xs leading-relaxed line-clamp-2" style={{ color: "rgba(255,255,255,0.52)" }}>{place.desc}</p>
-              <p className="text-xs mt-2.5 font-medium" style={{ color: C.green }}>✦ Best: {place.season}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Modal */}
-      {modal && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6"
-          style={{ background: "rgba(3,9,18,0.9)", backdropFilter: "blur(24px)" }}
-          onClick={() => setModal(null)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="w-full max-w-md rounded-3xl overflow-hidden"
-            style={{ background: "#0B1726", border: `1px solid ${C.cardBorder}`, boxShadow: "0 50px 120px rgba(0,0,0,0.85)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative h-56">
-              <img src={modal.img} alt={modal.name} className="w-full h-full object-cover" />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, #0B1726 0%, transparent 50%)" }} />
-              <button onClick={() => setModal(null)} className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
-                <X size={15} className="text-white" />
-              </button>
-              {modal.unesco && (
-                <div className="absolute top-4 left-4 px-3 py-1 rounded-xl text-xs font-bold" style={{ background: "rgba(124,77,255,0.9)" }}>
-                  UNESCO World Heritage ✦
-                </div>
-              )}
-            </div>
-            <div className="p-6">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h3 className="text-xl font-bold text-white" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{modal.name}</h3>
-                <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                  <Star size={14} fill={C.amber} color={C.amber} />
-                  <span className="font-bold text-sm" style={{ color: C.amber, fontFamily: "'Space Grotesk', sans-serif" }}>{modal.rating}</span>
-                </div>
-              </div>
-              <p className="text-xs mb-4 flex items-center gap-1" style={{ color: "rgba(255,255,255,0.38)" }}>
-                <MapPin size={9} /> {modal.district}, Maharashtra
-              </p>
-              <p className="text-sm leading-relaxed mb-5" style={{ color: "rgba(255,255,255,0.68)" }}>{modal.desc}</p>
-              <span className="inline-block text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: "rgba(34,197,94,0.1)", color: C.green, border: "1px solid rgba(34,197,94,0.2)" }}>
-                Best Season: {modal.season}
-              </span>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ── Weather section ────────────────────────────────────────────────────────────
-function WeatherSection() {
-  const w = WEATHER;
-
-  return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Hero weather card */}
-      <div className="relative rounded-3xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0D1B3E 0%, #0A1628 60%, #101D35 100%)", border: `1px solid rgba(76,201,240,0.15)` }}>
-        {/* Atmospheric particles */}
+      <div
+        className="relative rounded-2xl overflow-hidden"
+        style={{
+          background: "linear-gradient(160deg, #0A1628 0%, #0D2142 50%, #0A1628 100%)",
+          border: `0.5px solid rgba(10,132,255,0.2)`,
+        }}
+      >
+        {/* Ambient glow blobs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute opacity-[0.07]" style={{ top: "8%", right: "12%", fontSize: 80, animation: "wdrift 14s ease-in-out infinite" }}>⛅</div>
-          <div className="absolute opacity-[0.05]" style={{ top: "45%", right: "30%", fontSize: 52, animation: "wdrift 20s ease-in-out infinite reverse" }}>☁️</div>
+          <div className="absolute w-48 h-48 rounded-full opacity-10"
+            style={{ top: "-20%", right: "5%", background: SYS.blue, filter: "blur(48px)" }} />
+          <div className="absolute w-32 h-32 rounded-full opacity-10"
+            style={{ bottom: "10%", left: "10%", background: SYS.teal, filter: "blur(36px)" }} />
+          <div className="absolute opacity-[0.06]" style={{ top: "8%", right: "12%", fontSize: 80, animation: "wdrift 14s ease-in-out infinite" }}>⛅</div>
         </div>
 
-        <div className="relative p-6 md:p-8">
-          <div className="flex items-start justify-between mb-7">
+        <div className="relative p-6 md:p-7">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <p className="text-xs mb-2 flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                <MapPin size={10} /> Mumbai, Maharashtra · Live
+              <p className="text-[11px] mb-3 flex items-center gap-1" style={{ color: M.labelTertiary }}>
+                <MapPin size={10} /> {info.name} · Live
               </p>
-              <div className="flex items-end gap-3 mb-1">
-                <span className="font-black leading-none" style={{ fontSize: "5rem", fontFamily: "'Space Grotesk', sans-serif", color: C.neon }}>
+              <div className="flex items-end gap-2 mb-1">
+                <span
+                  className="font-black leading-none"
+                  style={{
+                    fontSize: "4.5rem",
+                    color: "#FFFFFF",
+                    letterSpacing: "-0.04em",
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                >
                   {w.temp}°
                 </span>
-                <span className="text-6xl mb-2">⛅</span>
+                <span className="text-5xl mb-1.5">⛅</span>
               </div>
-              <p className="text-base" style={{ color: "rgba(255,255,255,0.58)" }}>{w.condition}</p>
+              <p className="text-[15px] font-medium" style={{ color: M.labelSecondary }}>{w.condition}</p>
             </div>
             <div className="text-right shrink-0">
-              <div className="mb-2">
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Feels Like</p>
-                <p className="text-lg font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif", color: "rgba(255,255,255,0.8)" }}>{w.feelsLike}°C</p>
-              </div>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.38)" }}>🌅 {w.sunrise}</p>
-              <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.38)" }}>🌇 {w.sunset}</p>
+              <p className="text-[11px] mb-1" style={{ color: M.labelTertiary }}>Feels like</p>
+              <p className="text-[22px] font-bold mb-3" style={{ color: M.labelPrimary, letterSpacing: "-0.02em" }}>
+                {w.feelsLike}°
+              </p>
+              <p className="text-[11px]" style={{ color: M.labelTertiary }}>🌅 {w.sunrise}</p>
+              <p className="text-[11px] mt-1" style={{ color: M.labelTertiary }}>🌇 {w.sunset}</p>
             </div>
           </div>
 
-          {/* Quick metrics */}
-          <div className="grid grid-cols-4 gap-3 mb-6">
+          {/* 4-stat row */}
+          <div className="grid grid-cols-4 gap-2 mb-5">
             {[
-              { icon: <Droplets size={14} />, label: "Humidity",    val: `${w.humidity}%`, color: C.teal },
-              { icon: <Wind      size={14} />, label: "Wind",        val: `${w.wind} km/h`, color: C.cyan },
-              { icon: <Eye       size={14} />, label: "AQI",         val: `${w.aqi}`,       color: C.green },
-              { icon: <Sun       size={14} />, label: "UV Index",    val: `${w.uv}`,        color: C.amber },
+              { icon: <Droplets size={13} />, label: "Humidity", val: `${w.humidity}%`, color: SYS.teal },
+              { icon: <Wind size={13} />,     label: "Wind",     val: `${w.wind} km/h`,  color: SYS.blue },
+              { icon: <Eye size={13} />,      label: "AQI",      val: `${w.aqi}`,        color: SYS.green },
+              { icon: <Sun size={13} />,      label: "UV Index", val: `${w.uv}`,         color: SYS.orange },
             ].map(({ icon, label, val, color }) => (
-              <div key={label} className="flex flex-col items-center py-3 px-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <div key={label}
+                className="flex flex-col items-center py-3 rounded-2xl"
+                style={{ background: M.fill1, border: `0.5px solid ${M.separator}` }}
+              >
                 <div className="mb-1.5" style={{ color }}>{icon}</div>
-                <p className="text-sm font-bold leading-none mb-0.5" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{val}</p>
-                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.36)" }}>{label}</p>
+                <p className="text-[14px] font-bold leading-none mb-0.5"
+                  style={{ color: M.labelPrimary, letterSpacing: "-0.015em" }}>
+                  {val}
+                </p>
+                <p className="text-[10px]" style={{ color: M.labelTertiary }}>{label}</p>
               </div>
             ))}
           </div>
 
-          {/* Rain bar */}
-          <div className="p-3.5 rounded-2xl mb-6" style={{ background: "rgba(255,255,255,0.05)" }}>
-            <div className="flex justify-between text-xs mb-2">
-              <span style={{ color: "rgba(255,255,255,0.45)" }}>🌧 Rain Probability</span>
-              <span className="font-bold" style={{ color: C.cyan, fontFamily: "'Space Grotesk', sans-serif" }}>{w.rain}%</span>
+          {/* Rain probability bar */}
+          <div className="p-3.5 rounded-xl mb-5" style={{ background: M.fill1 }}>
+            <div className="flex justify-between text-[12px] mb-2">
+              <span style={{ color: M.labelSecondary }}>🌧 Rain Probability</span>
+              <span className="font-bold" style={{ color: SYS.blue }}>{w.rain}%</span>
             </div>
-            <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.09)" }}>
+            <div className="h-1 rounded-full" style={{ background: M.fill2 }}>
               <motion.div
                 className="h-full rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${w.rain}%` }}
-                transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
-                style={{ background: `linear-gradient(to right, ${C.cyan}, ${C.violet})` }}
+                transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
+                style={{ background: `linear-gradient(to right, ${SYS.blue}, ${SYS.purple})` }}
               />
             </div>
           </div>
 
-          {/* Hourly */}
+          {/* Hourly forecast */}
           <div>
-            <p className="text-xs mb-3" style={{ color: "rgba(255,255,255,0.38)" }}>Hourly Forecast</p>
-            <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            <p className="text-[11px] mb-2.5 font-medium uppercase tracking-wide"
+              style={{ color: M.labelTertiary }}>
+              Hourly
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
               {w.hourly.map((h, i) => (
                 <div
                   key={i}
-                  className="shrink-0 flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-2xl"
+                  className="shrink-0 flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl"
                   style={{
-                    background: i === 0 ? C.cyanDim : "rgba(255,255,255,0.04)",
-                    border: i === 0 ? `1px solid ${C.cyanBorder}` : "1px solid transparent",
+                    background: i === 0 ? `${SYS.blue}18` : M.fill1,
+                    border: `0.5px solid ${i === 0 ? `${SYS.blue}44` : M.separator}`,
+                    minWidth: 52,
                   }}
                 >
-                  <p className="text-[10px]" style={{ color: i === 0 ? C.cyan : "rgba(255,255,255,0.36)" }}>{h.time}</p>
+                  <p className="text-[10px]" style={{ color: i === 0 ? SYS.blue : M.labelTertiary }}>
+                    {h.time}
+                  </p>
                   <p className="text-lg">{h.icon}</p>
-                  <p className="text-xs font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{h.temp}°</p>
+                  <p className="text-[13px] font-semibold" style={{ color: M.labelPrimary, letterSpacing: "-0.01em" }}>
+                    {h.temp}°
+                  </p>
                 </div>
               ))}
             </div>
@@ -530,258 +566,223 @@ function WeatherSection() {
         </div>
       </div>
 
-      {/* 7-day */}
-      <div className="rounded-2xl p-5" style={{ background: C.card, border: `1px solid ${C.cardBorder}` }}>
-        <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.38)" }}>7-Day Forecast</p>
-        <div className="space-y-2.5">
-          {w.weekly.map((day, i) => (
-            <div key={i} className="flex items-center justify-between gap-3">
-              <p className="text-sm w-9" style={{ color: "rgba(255,255,255,0.58)" }}>{day.day}</p>
-              <p className="text-lg w-7">{day.icon}</p>
-              <div className="flex-1 mx-2">
-                <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${Math.round(((day.high - 20) / 15) * 100)}%`, background: `linear-gradient(to right, ${C.cyan}, ${C.amber})` }} />
-                </div>
-              </div>
-              <div className="flex gap-2 text-xs">
-                <span className="font-bold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>{day.high}°</span>
-                <span style={{ color: "rgba(255,255,255,0.38)" }}>{day.low}°</span>
+      {/* 7-day forecast */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{ background: M.l2, border: `0.5px solid ${M.separator}` }}
+      >
+        <p className="text-[11px] font-medium uppercase tracking-wide px-4 pt-4 pb-2"
+          style={{ color: M.labelTertiary }}>
+          7-Day Forecast
+        </p>
+        {w.weekly.map((day, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 px-4 py-2.5"
+            style={{ borderTop: i === 0 ? "none" : `0.5px solid ${M.separator}` }}
+          >
+            <p className="text-[14px] font-medium w-9" style={{ color: M.labelSecondary }}>{day.day}</p>
+            <p className="text-lg w-7">{day.icon}</p>
+            <div className="flex-1 mx-1">
+              <div className="h-1 rounded-full" style={{ background: M.fill2 }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.round(((day.high - 20) / 15) * 100)}%`,
+                    background: `linear-gradient(to right, ${SYS.blue}, ${SYS.orange})`,
+                  }}
+                />
               </div>
             </div>
-          ))}
-        </div>
+            <div className="flex gap-2.5 text-[13px]">
+              <span className="font-semibold" style={{ color: M.labelPrimary }}>{day.high}°</span>
+              <span style={{ color: M.labelTertiary }}>{day.low}°</span>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Seasonal chart */}
-      <div className="rounded-2xl p-5" style={{ background: C.card, border: `1px solid ${C.cardBorder}` }}>
-        <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.38)" }}>Annual Temperature Pattern (°C)</p>
-        <div className="h-36">
+      {/* Seasonal area chart */}
+      <div
+        className="rounded-2xl p-5"
+        style={{ background: M.l2, border: `0.5px solid ${M.separator}` }}
+      >
+        <p className="text-[11px] font-medium uppercase tracking-wide mb-4"
+          style={{ color: M.labelTertiary }}>
+          Annual Temperature (°C)
+        </p>
+        <div className="h-32">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={w.seasonal}>
               <defs>
-                <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={C.cyan} stopOpacity={0.28} />
-                  <stop offset="95%" stopColor={C.cyan} stopOpacity={0} />
+                <linearGradient id="sf-tg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={SYS.blue} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={SYS.blue} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="m" tick={{ fill: "rgba(255,255,255,0.28)", fontSize: 10 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="m"
+                tick={{ fill: M.labelTertiary, fontSize: 10, fontFamily: "'Inter', sans-serif" }}
+                axisLine={false} tickLine={false} />
               <YAxis hide domain={[18, 38]} />
-              <Tooltip contentStyle={{ background: "#0B1726", border: `1px solid ${C.cardBorder}`, borderRadius: 12, color: "#fff", fontSize: 12 }} />
-              <Area type="monotone" dataKey="t" stroke={C.cyan} strokeWidth={2} fill="url(#tg)" name="Avg °C" />
+              <Tooltip
+                contentStyle={{
+                  background: M.l1,
+                  border: `0.5px solid ${M.separatorHard}`,
+                  borderRadius: 10,
+                  color: M.labelPrimary,
+                  fontSize: 12,
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              />
+              <Area type="monotone" dataKey="t" stroke={SYS.blue} strokeWidth={1.5}
+                fill="url(#sf-tg)" name="Avg °C" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       <style>{`
-        @keyframes wdrift { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-18px,-12px) scale(1.04);} }
+        @keyframes wdrift {
+          0%,100% { transform: translate(0,0) scale(1); }
+          50% { transform: translate(-14px,-10px) scale(1.03); }
+        }
       `}</style>
     </div>
   );
 }
 
-// ── Economy section ────────────────────────────────────────────────────────────
-function EconomySection() {
-  const e = ECONOMY;
-  const kpis = [
-    { label:"GSDP",          val: e.gsdp,     sub:"Gross State Domestic Product", color: C.cyan,   icon:"💹" },
-    { label:"GDP Rank",      val: e.rank,     sub:"Among all Indian states",       color: C.violet, icon:"🏆" },
-    { label:"Growth Rate",   val: e.growth,   sub:"Year-over-year increase",       color: C.green,  icon:"📈" },
-    { label:"Per Capita",    val: e.perCapita,sub:"Annual income per person",       color: C.amber,  icon:"👤" },
-  ];
-
+// ─────────────────────────────────────────────────────────────────
+// Economy Panel
+// ─────────────────────────────────────────────────────────────────
+function EconomyPanel({ info }: { info: (typeof STATES)[string] }) {
+  const e = info.economy;
   return (
-    <div className="space-y-5">
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {kpis.map(({ label, val, sub, color, icon }, i) => (
-          <motion.div
-            key={label}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.07 }}
-            whileHover={{ y: -4 }}
-            className="rounded-2xl p-4"
-            style={{ background: C.card, border: `1px solid ${color}1a` }}
-          >
-            <p className="text-xl mb-2">{icon}</p>
-            <p className="text-[1.35rem] font-black leading-none mb-1.5" style={{ color, fontFamily: "'Space Grotesk', sans-serif" }}>{val}</p>
-            <p className="text-[10px] leading-snug" style={{ color: "rgba(255,255,255,0.36)" }}>{sub}</p>
-          </motion.div>
-        ))}
+    <div className="space-y-4">
+      {/* GDP / Per Capita — iOS grouped cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <div
+          className="rounded-2xl p-5"
+          style={{
+            background: `${SYS.green}12`,
+            border: `0.5px solid ${SYS.green}30`,
+          }}
+        >
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3"
+            style={{ background: `${SYS.green}22` }}>
+            <Building2 size={16} style={{ color: SYS.green }} />
+          </div>
+          <p className="text-[11px] font-medium uppercase tracking-wide mb-1"
+            style={{ color: SYS.green, opacity: 0.8 }}>
+            GDP
+          </p>
+          <p className="text-[22px] font-bold" style={{ color: M.labelPrimary, letterSpacing: "-0.02em" }}>
+            {e.gdp}
+          </p>
+        </div>
+        <div
+          className="rounded-2xl p-5"
+          style={{
+            background: `${SYS.blue}12`,
+            border: `0.5px solid ${SYS.blue}30`,
+          }}
+        >
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3"
+            style={{ background: `${SYS.blue}22` }}>
+            <Users size={16} style={{ color: SYS.blue }} />
+          </div>
+          <p className="text-[11px] font-medium uppercase tracking-wide mb-1"
+            style={{ color: SYS.blue, opacity: 0.8 }}>
+            Per Capita
+          </p>
+          <p className="text-[22px] font-bold" style={{ color: M.labelPrimary, letterSpacing: "-0.02em" }}>
+            {e.perCapita}
+          </p>
+        </div>
       </div>
 
-      {/* Sector donut + bars */}
-      <div className="rounded-2xl p-5 grid grid-cols-1 sm:grid-cols-5 gap-6 items-center" style={{ background: C.card, border: `1px solid ${C.cardBorder}` }}>
-        <div className="sm:col-span-2">
-          <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.38)" }}>Sector Contribution</p>
-          <div className="h-44">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Sector donut */}
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: M.l2, border: `0.5px solid ${M.separator}` }}
+        >
+          <p className="text-[13px] font-semibold mb-4" style={{ color: M.labelPrimary, letterSpacing: "-0.01em" }}>
+            Sector Breakdown
+          </p>
+          <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={e.sectors} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={48} outerRadius={68} paddingAngle={4}>
-                  {e.sectors.map((s, i) => <Cell key={i} fill={s.color} />)}
+                <Pie
+                  data={e.sectors}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={46}
+                  outerRadius={72}
+                  paddingAngle={2}
+                  strokeWidth={0}
+                >
+                  {e.sectors.map((s) => <Cell key={s.name} fill={s.color} />)}
                 </Pie>
-                <Tooltip contentStyle={{ background: "#0B1726", border: `1px solid ${C.cardBorder}`, borderRadius: 12, color: "#fff", fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    background: M.l1,
+                    borderRadius: 10,
+                    border: `0.5px solid ${M.separatorHard}`,
+                    fontSize: 12,
+                    color: M.labelPrimary,
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                  formatter={(v) => `${v}%`}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
-        </div>
-        <div className="sm:col-span-3 space-y-3">
-          {e.sectors.map((s) => (
-            <div key={s.name}>
-              <div className="flex justify-between text-xs mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full" style={{ background: s.color }} />
-                  <span style={{ color: "rgba(255,255,255,0.75)" }}>{s.name}</span>
-                </div>
-                <span className="font-bold" style={{ color: s.color, fontFamily: "'Space Grotesk', sans-serif" }}>{s.value}%</span>
+          <div className="space-y-2">
+            {e.sectors.map((s) => (
+              <div key={s.name} className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[12px]" style={{ color: M.labelSecondary }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
+                  {s.name}
+                </span>
+                <span className="text-[13px] font-semibold" style={{ color: M.labelPrimary }}>
+                  {s.value}%
+                </span>
               </div>
-              <div className="h-1.5 rounded-full" style={{ background: "rgba(255,255,255,0.07)" }}>
-                <div className="h-full rounded-full" style={{ width: `${s.value}%`, background: s.color }} />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Industries */}
-      <div className="rounded-2xl p-5" style={{ background: C.card, border: `1px solid ${C.cardBorder}` }}>
-        <p className="text-xs mb-5" style={{ color: "rgba(255,255,255,0.38)" }}>Top Industries — Performance Index</p>
-        <div className="space-y-4">
-          {e.industries.map((ind, i) => (
-            <div key={ind.name}>
-              <div className="flex justify-between text-sm mb-2">
-                <span style={{ color: "rgba(255,255,255,0.78)" }}>{ind.name}</span>
-                <span className="font-bold" style={{ color: ind.color, fontFamily: "'Space Grotesk', sans-serif" }}>{ind.pct}%</span>
+        {/* Key stats */}
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: M.l2, border: `0.5px solid ${M.separator}` }}
+        >
+          <p className="text-[13px] font-semibold mb-4" style={{ color: M.labelPrimary, letterSpacing: "-0.01em" }}>
+            Key Statistics
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {e.stats.map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl p-3.5"
+                style={{ background: M.fill1, border: `0.5px solid ${M.separator}` }}
+              >
+                <p className="text-[10px] font-medium uppercase tracking-wider mb-1.5"
+                  style={{ color: M.labelTertiary }}>
+                  {s.label}
+                </p>
+                <p className="text-[15px] font-bold" style={{ color: M.labelPrimary, letterSpacing: "-0.015em" }}>
+                  {s.value}
+                </p>
               </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
-                <motion.div
-                  className="h-full rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${ind.pct}%` }}
-                  transition={{ duration: 1, delay: i * 0.1 + 0.2, ease: "easeOut" }}
-                  style={{ background: `linear-gradient(to right, ${ind.color}88, ${ind.color})` }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Export chips */}
-      <div className="rounded-2xl p-5" style={{ background: C.card, border: `1px solid ${C.cardBorder}` }}>
-        <p className="text-xs mb-4 flex items-center gap-2" style={{ color: "rgba(255,255,255,0.38)" }}>
-          <TrendingUp size={12} /> Export Highlights
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {e.exports.map((exp, i) => (
-            <motion.span
-              key={exp}
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.05 + 0.1 }}
-              whileHover={{ scale: 1.06, y: -1 }}
-              className="text-sm px-4 py-2 rounded-full font-medium cursor-default"
-              style={{ background: C.cyanDim, color: C.cyan, border: `1px solid ${C.cyanBorder}` }}
-            >
-              {exp}
-            </motion.span>
-          ))}
+            ))}
+          </div>
+          <div className="mt-4 flex items-center gap-1.5 text-[11px]" style={{ color: M.labelQuart }}>
+            <GraduationCap size={12} />
+            Indicative figures for demo purposes.
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
-// ── StatePopup ────────────────────────────────────────────────────────────────
-export default function StatePopup({ stateName, onClose }: { stateName: string | null; onClose: () => void }) {
-  const isOpen = Boolean(stateName);
-  const [activeTab, setActiveTab] = useState("map");
-  const [parallax, setParallax] = useState(0);
-  const [isClosing, setIsClosing] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const heroData = stateName ? (HERO_MAP[stateName] || FALLBACK_HERO) : FALLBACK_HERO;
-
-  const requestClose = useCallback(() => {
-    setIsClosing(true);
-    setTimeout(() => { setIsClosing(false); onClose(); }, 260);
-  }, [onClose]);
-
-  useEffect(() => {
-    if (isOpen) { setActiveTab("map"); setParallax(0); }
-  }, [stateName, isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") requestClose(); };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [isOpen, requestClose]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => setParallax(el.scrollTop * 0.28);
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className={`fixed inset-0 z-40 transition-opacity duration-300 ${isClosing ? "opacity-0" : "opacity-100"}`}
-        style={{ background: "rgba(2,6,14,0.88)", backdropFilter: "blur(18px)" }}
-        onClick={requestClose}
-      />
-
-      {/* Panel */}
-      <div
-        className={`fixed z-50 flex flex-col overflow-hidden transition-all duration-300
-          inset-0 rounded-none
-          md:rounded-[28px] md:inset-auto md:top-[4%] md:left-[5%] md:right-[5%] md:bottom-[4%]
-          ${isClosing ? "opacity-0 scale-[0.97]" : "opacity-100 scale-100"}
-        `}
-        style={{
-          background: "rgba(7,17,29,0.97)",
-          backdropFilter: "blur(32px) saturate(180%)",
-          border: `1px solid ${C.cardBorder}`,
-          boxShadow: `0 60px 160px rgba(0,0,0,0.95), 0 0 0 0.5px ${C.cyanBorder} inset`,
-        }}
-      >
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto"
-          style={{ scrollbarWidth: "thin", scrollbarColor: `${C.cyanBorder} transparent` }}
-        >
-          {stateName && (
-            <>
-              <Hero stateName={stateName} heroData={heroData} parallax={parallax} onClose={requestClose} />
-              <TabNav active={activeTab} onSelect={setActiveTab} />
-
-              <div className="px-4 md:px-10 py-7 pb-12">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.32, ease: "easeOut" }}
-                >
-                  {activeTab === "map"         && <MapSection />}
-                  {activeTab === "attractions" && <AttractionsSection />}
-                  {activeTab === "weather"     && <WeatherSection />}
-                  {activeTab === "economy"     && <EconomySection />}
-                </motion.div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── Demo App ──────────────────────────────────────────────────────────────────
-

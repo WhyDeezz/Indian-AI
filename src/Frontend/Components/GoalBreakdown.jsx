@@ -228,7 +228,7 @@ const GoalBreakdown = ({ onBack }) => {
           ←
         </button>
         <h1 className="goal-breakdown-title">
-          🎯 Goal Breakdown
+          Goal Breakdown
         </h1>
       </div>
 

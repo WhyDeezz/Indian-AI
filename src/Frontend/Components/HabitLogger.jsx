@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import './HabitLogger.css';
 
 const HabitLogger = ({ onBack }) => {
   const [habits, setHabits] = useState([]);
@@ -134,37 +133,37 @@ const HabitLogger = ({ onBack }) => {
   }, []);
 
   return (
-    <div className="habit-logger-container">
-      <div className="habit-logger-header">
+    <div className="min-h-screen w-full max-w-screen overflow-x-hidden box-border p-5 md:p-[15px]">
+      <div className="flex items-center mb-[30px] text-white">
         <button 
           onClick={onBack}
-          className="back-button"
+          className="mr-[15px] rounded-xl border border-blue-500/30 bg-blue-500/15 px-[15px] py-[10px] text-white backdrop-blur-md transition-all duration-200 hover:-translate-y-px hover:bg-blue-500/25"
         >
           ← Back
         </button>
-        <h1 className="habit-logger-title">
-          📊 Habit Logger
+        <h1 className="m-0 bg-gradient-to-br from-blue-500 to-blue-700 bg-clip-text text-[32px] font-bold text-transparent drop-shadow md:text-2xl">
+          Habit Logger
         </h1>
       </div>
 
-      <div className="habit-input-section">
-        <h2 className="habit-input-title">
+      <div className="mb-[30px] w-full max-w-[calc(100vw-40px)] rounded-[20px] border border-white/20 bg-blue-500/10 p-[25px] shadow-lg backdrop-blur-xl box-border md:max-w-[calc(100vw-30px)] md:p-5">
+        <h2 className="mb-5 text-xl font-semibold text-white">
           Add New Habit
         </h2>
-        <div className="habit-input-container">
+        <div className="flex items-center gap-[15px] md:flex-col md:gap-[10px]">
           <input
             type="text"
             value={newHabit}
             onChange={(e) => setNewHabit(e.target.value)}
             placeholder="Enter habit name (e.g., exercise, meditate, read)"
-            className="habit-input"
+            className="flex-1 rounded-xl border border-blue-500/30 bg-blue-500/10 px-[18px] py-[14px] text-base text-white backdrop-blur-md transition-all duration-200 placeholder:text-white/60 focus:border-blue-500/60 focus:outline-none focus:ring-4 focus:ring-blue-500/20 md:w-full"
             onKeyPress={(e) => e.key === 'Enter' && addHabit()}
             disabled={loading}
           />
           <button
             onClick={addHabit}
             disabled={loading || !newHabit.trim()}
-            className="add-habit-button"
+            className="rounded-xl px-6 py-[14px] text-base font-semibold text-white transition-all duration-200 enabled:bg-gradient-to-br enabled:from-blue-500 enabled:to-blue-700 enabled:hover:-translate-y-0.5 enabled:hover:shadow-lg enabled:hover:shadow-blue-500/40 disabled:cursor-not-allowed disabled:bg-gray-300 md:w-full"
           >
             {loading ? 'Adding...' : 'Add Habit'}
           </button>
